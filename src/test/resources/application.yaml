@@ -1,0 +1,11 @@
+spring:
+  ai:
+    model:
+      chat: ollama
+    openai:
+      api-key: test-key
+
+agent:
+  llm-provider: ollama
+  max-loop: 5
+  recent-message-count: 10
