@@ -63,6 +63,9 @@ POST /chat
 }
 ```
 
+## 클라이언트 문서
+- [MVP Client API Guide](docs/mvp-client-api-guide.md)
+
 ## 작업 규칙
 - `.agent/java-spring-ai-git-workflow-guide.md` 기준 협업
 - `.agent/work/` 하위 작업 문서는 `.gitignore`로 제외
