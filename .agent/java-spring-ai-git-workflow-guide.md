@@ -449,14 +449,14 @@ AI가 커밋했을 때 Git 히스토리에서 식별 가능하도록 **전용 bo
 ### 10.1 권장 방식
 
 ```bash
-git config user.name "Sabang AI Bot"
-git config user.email "sabang-ai-bot@users.noreply.github.com"
+git config user.name "mj-ai-bot"
+git config user.email "mjoo1106@khu.ac.kr"
 ```
 
 또는 커밋 시 일회성 author 지정:
 
 ```bash
-git commit --author="Sabang AI Bot <sabang-ai-bot@users.noreply.github.com>" -m "fix(order): 주문 상태 매핑 오류 수정 [AI]"
+git commit --author="mj-ai-bot <mjoo1106@khu.ac.kr>" -m "fix(order): 주문 상태 매핑 오류 수정 [AI]"
 ```
 
 ### 10.2 권장 이유
@@ -465,17 +465,20 @@ git commit --author="Sabang AI Bot <sabang-ai-bot@users.noreply.github.com>" -m 
 - 감사 로그 추적 용이
 - AI 자동화 도입 시 조직 설득이 쉬움
 
-### 10.3 AI Push 인증(PAT) 운영 정책
-AI가 `git push` 또는 `gh` 명령을 사용할 때는 **전용 GitHub 계정의 PAT** 를 사용한다.
+### 10.3 AI Commit/Push 계정 및 PAT 운영 정책
+AI가 `git commit`, `git push`, `gh` 명령을 사용할 때는 **동일한 전용 GitHub 계정** 과 **해당 계정 PAT** 를 사용한다.
 
-- AI 자동화 Push는 지정된 전용 계정만 사용
+- AI 자동화 Commit/Push는 지정된 전용 계정만 사용
+- commit author 계정과 push 인증 계정은 반드시 동일해야 함
 - PAT는 문서/코드/스크립트에 평문 저장 금지
 - PAT는 CI Secret 또는 로컬 환경변수(`GITHUB_TOKEN`)로만 주입
 - 토큰이 노출되면 즉시 폐기(revoke) 후 재발급
 
-예시(로컬/CI 공통):
+예시(로컬/CI 공통, 계정 식별 + PAT 주입):
 
 ```bash
+git config user.name "mj-ai-bot"
+git config user.email "mjoo1106@khu.ac.kr"
 export GITHUB_TOKEN="<PAT>"
 gh auth login --with-token <<< "$GITHUB_TOKEN"
 ```
@@ -484,6 +487,16 @@ gh auth login --with-token <<< "$GITHUB_TOKEN"
 
 ```bash
 git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/<owner>/<repo>.git
+```
+
+로컬 저장소에서 `GITHUB_TOKEN` 환경변수를 사용하는 credential helper 예시:
+
+```bash
+git config credential.helper '!f() { \
+  test -n "$GITHUB_TOKEN" || { echo "GITHUB_TOKEN is not set" >&2; exit 1; }; \
+  echo "username=x-access-token"; \
+  echo "password=$GITHUB_TOKEN"; \
+}; f'
 ```
 
 ---
