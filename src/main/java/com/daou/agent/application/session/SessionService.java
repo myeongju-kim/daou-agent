@@ -31,6 +31,16 @@ public class SessionService {
         session.appendToolResult(message);
     }
 
+    public void setSelectedModel(String sessionId, String model) {
+        Session session = getOrCreate(sessionId);
+        session.setSelectedModel(model);
+    }
+
+    public String getSelectedModel(String sessionId) {
+        Session session = getOrCreate(sessionId);
+        return session.getSelectedModel();
+    }
+
     public long countSessions() {
         return sessionRepository.count();
     }

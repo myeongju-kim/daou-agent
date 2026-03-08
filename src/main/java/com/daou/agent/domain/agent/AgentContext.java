@@ -11,13 +11,21 @@ public class AgentContext {
     private final String summary;
     private final List<SessionMessage> recentMessages;
     private final String currentUserMessage;
+    private final String selectedModel;
     private final List<ToolCallResult> toolResults = new ArrayList<>();
 
-    public AgentContext(String sessionId, String summary, List<SessionMessage> recentMessages, String currentUserMessage) {
+    public AgentContext(
+            String sessionId,
+            String summary,
+            List<SessionMessage> recentMessages,
+            String currentUserMessage,
+            String selectedModel
+    ) {
         this.sessionId = sessionId;
         this.summary = summary == null ? "" : summary;
         this.recentMessages = List.copyOf(recentMessages);
         this.currentUserMessage = currentUserMessage;
+        this.selectedModel = selectedModel == null ? "" : selectedModel.trim();
     }
 
     public String getSessionId() {
@@ -34,6 +42,10 @@ public class AgentContext {
 
     public String getCurrentUserMessage() {
         return currentUserMessage;
+    }
+
+    public String getSelectedModel() {
+        return selectedModel;
     }
 
     public List<ToolCallResult> getToolResults() {

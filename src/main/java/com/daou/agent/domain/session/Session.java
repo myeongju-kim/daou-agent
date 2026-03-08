@@ -11,6 +11,7 @@ public class Session {
     private final String id;
     private final List<SessionMessage> messages = new ArrayList<>();
     private String summary = "";
+    private String selectedModel = "";
 
     public Session(String id) {
         if (id == null || id.isBlank()) {
@@ -55,5 +56,13 @@ public class Session {
 
     public void updateSummary(String summary) {
         this.summary = Objects.requireNonNullElse(summary, "");
+    }
+
+    public String getSelectedModel() {
+        return selectedModel;
+    }
+
+    public void setSelectedModel(String selectedModel) {
+        this.selectedModel = selectedModel == null ? "" : selectedModel.trim();
     }
 }

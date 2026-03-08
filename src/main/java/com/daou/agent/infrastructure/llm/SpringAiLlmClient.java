@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.ollama.api.OllamaChatOptions;
 
 public class SpringAiLlmClient implements LlmClient {
 
@@ -36,11 +37,19 @@ public class SpringAiLlmClient implements LlmClient {
         String userPrompt = buildUserPrompt(context);
 
         try {
-            String raw = chatClient.prompt()
+            ChatClient.ChatClientRequestSpec requestSpec = chatClient.prompt()
                     .system(systemPrompt)
-                    .user(userPrompt)
-                    .call()
-                    .content();
+                    .user(userPrompt);
+
+            if ("ollama".equalsIgnoreCase(provider) && !context.getSelectedModel().isBlank()) {
+                requestSpec = requestSpec.options(
+                        OllamaChatOptions.builder()
+                                .model(context.getSelectedModel())
+                                .build()
+                );
+            }
+
+            String raw = requestSpec.call().content();
             return responseParser.parse(raw);
         } catch (Exception e) {
             return LlmResponse.finalAnswer("[" + provider + "] LLM 호출 실패: " + e.getMessage());
@@ -86,6 +95,7 @@ public class SpringAiLlmClient implements LlmClient {
         return """
                 sessionId: %s
                 summary: %s
+                selectedModel: %s
                 currentUserMessage: %s
 
                 recentMessages:
@@ -96,6 +106,7 @@ public class SpringAiLlmClient implements LlmClient {
                 """.formatted(
                 context.getSessionId(),
                 emptyToDash(context.getSummary()),
+                emptyToDash(context.getSelectedModel()),
                 emptyToDash(context.getCurrentUserMessage()),
                 emptyToDash(recentMessages),
                 emptyToDash(toolResults)

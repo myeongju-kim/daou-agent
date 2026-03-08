@@ -17,6 +17,10 @@ DaouOffice Agent Backend MVP를 클라이언트(Electron/Web/CLI)에서 바로 �
 - 승인: `POST /approvals/{id}/approve`
 - 거절: `POST /approvals/{id}/reject`
 - 승인+재개: `POST /approvals/{id}/approve-and-resume`
+4. Ollama 사용 시 모델 선택 저장
+- 모델 목록 조회: `GET /ollama/models`
+- 세션 모델 저장: `POST /ollama/models/select`
+- 세션 저장 모델 조회: `GET /ollama/models/select/{sessionId}`
 
 권장: 승인 이후 바로 응답을 이어받으려면 `approve-and-resume` API를 사용합니다.
 
@@ -134,6 +138,40 @@ Response Body
 }
 ```
 
+## POST /ollama/models/select
+사용자가 선택한 모델을 세션 기준으로 저장합니다. 이후 `POST /chat` 호출은 해당 세션의 저장 모델로 실행됩니다.
+
+Request Body
+```json
+{
+  "sessionId": "default",
+  "model": "qwen2.5:7b"
+}
+```
+
+Response Body
+```json
+{
+  "provider": "ollama",
+  "sessionId": "default",
+  "model": "qwen2.5:7b",
+  "message": "선택한 모델이 세션에 저장되었습니다."
+}
+```
+
+## GET /ollama/models/select/{sessionId}
+세션에 저장된 현재 모델을 조회합니다.
+
+Response Body
+```json
+{
+  "provider": "ollama",
+  "sessionId": "default",
+  "model": "qwen2.5:7b",
+  "message": "현재 세션의 선택 모델입니다."
+}
+```
+
 ## 7) 에러 응답 포맷
 검증/비즈니스 오류는 아래 포맷을 사용합니다.
 
@@ -179,6 +217,18 @@ curl http://localhost:8080/dashboard
 ### Ollama 모델 조회
 ```bash
 curl http://localhost:8080/ollama/models
+```
+
+### Ollama 모델 선택 저장
+```bash
+curl -X POST http://localhost:8080/ollama/models/select \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"default","model":"qwen2.5:7b"}'
+```
+
+### 세션 선택 모델 조회
+```bash
+curl http://localhost:8080/ollama/models/select/default
 ```
 
 ## 9) 클라이언트 구현 팁
