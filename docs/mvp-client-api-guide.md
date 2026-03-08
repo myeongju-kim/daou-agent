@@ -110,7 +110,31 @@ Response Body
 }
 ```
 
-## 6) 에러 응답 포맷
+## 6) Ollama Model API
+## GET /ollama/models
+`agent.llm-provider=ollama` 인 경우 Ollama 서버에 등록된 모델 목록을 조회합니다.
+
+Response Body
+```json
+{
+  "provider": "ollama",
+  "modelCount": 2,
+  "models": [
+    {
+      "name": "qwen2.5:7b",
+      "model": "qwen2.5:7b",
+      "modifiedAt": "2026-03-08T10:12:00Z",
+      "size": 4653242378,
+      "digest": "sha256:...",
+      "family": "qwen2",
+      "parameterSize": "7B",
+      "quantizationLevel": "Q4_0"
+    }
+  ]
+}
+```
+
+## 7) 에러 응답 포맷
 검증/비즈니스 오류는 아래 포맷을 사용합니다.
 
 ```json
@@ -129,7 +153,7 @@ Response Body
 }
 ```
 
-## 7) cURL 예시
+## 8) cURL 예시
 ### chat 호출
 ```bash
 curl -X POST http://localhost:8080/chat \
@@ -152,7 +176,12 @@ curl -X POST http://localhost:8080/approvals/{approvalId}/approve-and-resume
 curl http://localhost:8080/dashboard
 ```
 
-## 8) 클라이언트 구현 팁
+### Ollama 모델 조회
+```bash
+curl http://localhost:8080/ollama/models
+```
+
+## 9) 클라이언트 구현 팁
 - `sessionId`는 클라이언트 대화 탭 단위로 고정 유지
 - `approval_required` 수신 시 승인 모달을 띄우고 `approvalId` 저장
 - `steps`는 디버그 패널에 노출하면 MVP 동작 추적에 유용
