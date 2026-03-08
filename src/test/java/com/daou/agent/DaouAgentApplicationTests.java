@@ -1,13 +1,12 @@
-package com.agent.daouoffice;
+package com.daou.agent;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DaouofficeApplicationTests {
+class DaouAgentApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {
+    }
 }

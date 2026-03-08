@@ -1,3 +1,15 @@
 spring:
   application:
-    name: daouoffice
+    name: daouoffice-agent
+  ai:
+    model:
+      chat: ollama
+    openai:
+      api-key: ${OPENAI_API_KEY:test-key}
+
+agent:
+  llm-provider: ollama
+  max-loop: 5
+  recent-message-count: 12
+  cors:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
