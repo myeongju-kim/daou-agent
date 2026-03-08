@@ -16,8 +16,9 @@ DaouOffice Agent Backend MVP를 클라이언트(Electron/Web/CLI)에서 바로 �
 3. 승인 필요 시
 - 승인: `POST /approvals/{id}/approve`
 - 거절: `POST /approvals/{id}/reject`
+- 승인+재개: `POST /approvals/{id}/approve-and-resume`
 
-주의: 현재 MVP는 승인 후 자동 재개(resume)까지는 구현되지 않았습니다. 승인 완료 후 클라이언트에서 다시 `POST /chat`을 호출하는 방식으로 처리합니다.
+권장: 승인 이후 바로 응답을 이어받으려면 `approve-and-resume` API를 사용합니다.
 
 ## 3) Chat API
 ## POST /chat
@@ -73,6 +74,23 @@ Response Body
 }
 ```
 
+## POST /approvals/{id}/approve-and-resume
+승인 처리 후 대기 중이던 Tool 실행을 이어서 재개하고, `POST /chat`과 동일한 응답 형식으로 결과를 반환합니다.
+
+Response Body
+```json
+{
+  "status": "ok",
+  "message": "요청이 완료되었습니다.",
+  "steps": [
+    "3d2f3d70-7b3d-4f1a-9f28-6f5ad8456b42",
+    "calendar.create_event: 일정 생성 요청이 접수되었습니다.",
+    "loop=1"
+  ],
+  "approvalId": ""
+}
+```
+
 ## 5) Dashboard API
 ## GET /dashboard
 MVP 상태(세션/승인 대기/provider/tool 목록) 조회 API입니다.
@@ -122,6 +140,11 @@ curl -X POST http://localhost:8080/chat \
 ### 승인 처리
 ```bash
 curl -X POST http://localhost:8080/approvals/{approvalId}/approve
+```
+
+### 승인 후 재개
+```bash
+curl -X POST http://localhost:8080/approvals/{approvalId}/approve-and-resume
 ```
 
 ### 대시보드 조회

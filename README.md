@@ -43,6 +43,7 @@ DaouOffice Desktop Agent용 Spring AI Backend MVP입니다.
 - `GET /dashboard`
 - `POST /approvals/{id}/approve`
 - `POST /approvals/{id}/reject`
+- `POST /approvals/{id}/approve-and-resume`
 
 ### Chat 요청 예시
 ```text

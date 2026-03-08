@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class Session {
     private final String id;
@@ -36,6 +37,16 @@ public class Session {
 
     public void appendToolResult(String content) {
         messages.add(SessionMessage.toolResult(content));
+    }
+
+    public Optional<String> latestUserMessage() {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            SessionMessage message = messages.get(i);
+            if (message.role() == MessageRole.USER) {
+                return Optional.of(message.content());
+            }
+        }
+        return Optional.empty();
     }
 
     public String getSummary() {

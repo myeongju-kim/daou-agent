@@ -21,17 +21,26 @@ public class ApprovalService {
     }
 
     public ApprovalStatus approve(String approvalId) {
-        ApprovalRequest request = approvalRepository.findById(approvalId)
-                .orElseThrow(() -> new IllegalArgumentException("approval request not found: " + approvalId));
+        ApprovalRequest request = getById(approvalId);
         request.approve();
         return request.getStatus();
     }
 
+    public ApprovalRequest approveAndGet(String approvalId) {
+        ApprovalRequest request = getById(approvalId);
+        request.approve();
+        return request;
+    }
+
     public ApprovalStatus reject(String approvalId) {
-        ApprovalRequest request = approvalRepository.findById(approvalId)
-                .orElseThrow(() -> new IllegalArgumentException("approval request not found: " + approvalId));
+        ApprovalRequest request = getById(approvalId);
         request.reject();
         return request.getStatus();
+    }
+
+    public ApprovalRequest getById(String approvalId) {
+        return approvalRepository.findById(approvalId)
+                .orElseThrow(() -> new IllegalArgumentException("approval request not found: " + approvalId));
     }
 
     public long countPending() {
