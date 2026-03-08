@@ -53,6 +53,26 @@ public class OllamaModelService {
         return sessionService.getSelectedModel(sessionId);
     }
 
+    public String ensureSelectedModel(String sessionId) {
+        String selected = sessionService.getSelectedModel(sessionId);
+        if (selected != null && !selected.isBlank()) {
+            return selected;
+        }
+
+        OllamaModelSummary summary = getModels();
+        OllamaModelInfo first = summary.models().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Ollama에 설치된 모델이 없습니다."));
+
+        String fallback = first.model().isBlank() ? first.name() : first.model();
+        if (fallback.isBlank()) {
+            throw new IllegalStateException("Ollama 모델명 확인에 실패했습니다.");
+        }
+
+        sessionService.setSelectedModel(sessionId, fallback);
+        return fallback;
+    }
+
     private OllamaModelInfo toModelInfo(OllamaApi.Model model) {
         String modifiedAt = model.modifiedAt() == null ? "" : model.modifiedAt().toString();
         String family = model.details() == null ? "" : emptyToBlank(model.details().family());

@@ -79,6 +79,29 @@ class OllamaModelServiceTest {
         verify(sessionService).setSelectedModel("default", "qwen2.5:7b");
     }
 
+    @Test
+    void shouldFallbackToFirstInstalledModelWhenSelectedModelIsBlank() {
+        OllamaApi ollamaApi = mock(OllamaApi.class);
+        SessionService sessionService = mock(SessionService.class);
+        when(sessionService.getSelectedModel("session-1")).thenReturn("");
+
+        OllamaApi.Model firstModel = new OllamaApi.Model(
+                "qwen3.5:9b",
+                "qwen3.5:9b",
+                Instant.parse("2026-03-08T10:12:00Z"),
+                9_123_456_789L,
+                "sha256:qwen",
+                null
+        );
+        when(ollamaApi.listModels()).thenReturn(new OllamaApi.ListModelResponse(List.of(firstModel)));
+
+        OllamaModelService service = new OllamaModelService(beanProvider(ollamaApi), "ollama", sessionService);
+        String selected = service.ensureSelectedModel("session-1");
+
+        assertThat(selected).isEqualTo("qwen3.5:9b");
+        verify(sessionService).setSelectedModel("session-1", "qwen3.5:9b");
+    }
+
     private ObjectProvider<OllamaApi> beanProvider(OllamaApi ollamaApi) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         if (ollamaApi != null) {
