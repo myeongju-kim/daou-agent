@@ -6,10 +6,14 @@ import com.daou.agent.domain.agent.AgentContext;
 import com.daou.agent.domain.session.SessionMessage;
 import com.daou.agent.domain.tool.ToolCallResult;
 import com.daou.agent.domain.tool.ToolRegistry;
+import java.util.List;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 
 public class SpringAiLlmClient implements LlmClient {
@@ -18,6 +22,7 @@ public class SpringAiLlmClient implements LlmClient {
     private final ToolRegistry toolRegistry;
     private final LlmJsonResponseParser responseParser;
     private final ChatClient chatClient;
+    private final ChatModel chatModel;
 
     public SpringAiLlmClient(
             String provider,
@@ -28,6 +33,7 @@ public class SpringAiLlmClient implements LlmClient {
         this.provider = provider;
         this.toolRegistry = toolRegistry;
         this.responseParser = responseParser;
+        this.chatModel = chatModel;
         this.chatClient = ChatClient.create(chatModel);
     }
 
@@ -37,23 +43,32 @@ public class SpringAiLlmClient implements LlmClient {
         String userPrompt = buildUserPrompt(context);
 
         try {
+            String selectedModel = context.getSelectedModel();
+
+            // Ollama는 Prompt + OllamaChatOptions 경로로 모델 override를 강제 적용한다.
+            if ("ollama".equalsIgnoreCase(provider) && !selectedModel.isBlank()) {
+                String raw = callWithOllamaModelOverride(systemPrompt, userPrompt, selectedModel);
+                return responseParser.parse(raw);
+            }
+
             ChatClient.ChatClientRequestSpec requestSpec = chatClient.prompt()
                     .system(systemPrompt)
                     .user(userPrompt);
 
-            if ("ollama".equalsIgnoreCase(provider) && !context.getSelectedModel().isBlank()) {
-                requestSpec = requestSpec.options(
-                        OllamaChatOptions.builder()
-                                .model(context.getSelectedModel())
-                                .build()
-                );
-            }
-
             String raw = requestSpec.call().content();
             return responseParser.parse(raw);
         } catch (Exception e) {
-            return LlmResponse.finalAnswer("[" + provider + "] LLM 호출 실패: " + e.getMessage());
+            String modelInfo = context.getSelectedModel().isBlank() ? "(default)" : context.getSelectedModel();
+            return LlmResponse.finalAnswer("[" + provider + "] LLM 호출 실패(model=" + modelInfo + "): " + e.getMessage());
         }
+    }
+
+    private String callWithOllamaModelOverride(String systemPrompt, String userPrompt, String selectedModel) {
+        Prompt prompt = new Prompt(
+                List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt)),
+                OllamaChatOptions.builder().model(selectedModel).build()
+        );
+        return chatModel.call(prompt).getResult().getOutput().getText();
     }
 
     private String buildSystemPrompt() {
