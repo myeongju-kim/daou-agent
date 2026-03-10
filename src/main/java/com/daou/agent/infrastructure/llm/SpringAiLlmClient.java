@@ -103,6 +103,12 @@ public class SpringAiLlmClient implements LlmClient {
         String tools = toolRegistry.names().stream()
                 .sorted(Comparator.naturalOrder())
                 .collect(Collectors.joining(", "));
+        String toolDescriptions = toolRegistry.names().stream()
+                .sorted(Comparator.naturalOrder())
+                .map(name -> toolRegistry.find(name)
+                        .map(definition -> "- %s: %s".formatted(definition.name(), definition.description()))
+                        .orElse("- %s".formatted(name)))
+                .collect(Collectors.joining("\n"));
 
         return """
                 당신은 DaouOffice Agent 백엔드의 의사결정 LLM이다.
@@ -110,6 +116,9 @@ public class SpringAiLlmClient implements LlmClient {
                 설명 문장, 코드블록, 마크다운은 금지한다.
 
                 사용 가능한 도구:
+                %s
+
+                도구 설명:
                 %s
 
                 JSON 스키마:
@@ -121,9 +130,10 @@ public class SpringAiLlmClient implements LlmClient {
 
                 규칙:
                 - toolName은 반드시 사용 가능한 도구 목록 중 하나여야 한다.
+                - 도구 호출 시 설명에 나온 필수 인자를 빠짐없이 채운다.
                 - 이미 toolResults가 존재하면 기본적으로 final을 반환한다.
                 - 알 수 없는 값은 임의 생성하지 말고 final로 설명한다.
-                """.formatted(tools);
+                """.formatted(tools, toolDescriptions);
     }
 
     private String buildUserPrompt(AgentContext context) {
