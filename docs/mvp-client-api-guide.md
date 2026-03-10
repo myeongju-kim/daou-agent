@@ -6,6 +6,8 @@ DaouOffice Agent Backend MVP를 클라이언트(Electron/Web/CLI)에서 바로 �
 - Base URL (local): `http://localhost:8080`
 - Content-Type: `application/json`
 - 인증: 현재 MVP에는 별도 인증 헤더 없음
+- 응답 공통 필드: `version`, `correlationId`
+- 응답 헤더: `X-Correlation-Id`
 
 ## 2) 빠른 호출 순서
 1. `POST /chat` 호출
@@ -39,13 +41,15 @@ Request Body
 Response Body
 ```json
 {
+  "version": "v1",
   "status": "approval_required",
   "message": "승인이 필요한 도구입니다: calendar.create_event",
   "steps": [
     "loop=1",
     "calendar.create_event"
   ],
-  "approvalId": "3d2f3d70-7b3d-4f1a-9f28-6f5ad8456b42"
+  "approvalId": "3d2f3d70-7b3d-4f1a-9f28-6f5ad8456b42",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -61,9 +65,11 @@ Response Body
 Response Body
 ```json
 {
+  "version": "v1",
   "approvalId": "3d2f3d70-7b3d-4f1a-9f28-6f5ad8456b42",
   "status": "approved",
-  "message": "승인 처리되었습니다."
+  "message": "승인 처리되었습니다.",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -72,9 +78,11 @@ Response Body
 Response Body
 ```json
 {
+  "version": "v1",
   "approvalId": "3d2f3d70-7b3d-4f1a-9f28-6f5ad8456b42",
   "status": "rejected",
-  "message": "거절 처리되었습니다."
+  "message": "거절 처리되었습니다.",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -84,6 +92,7 @@ Response Body
 Response Body
 ```json
 {
+  "version": "v1",
   "status": "ok",
   "message": "요청이 완료되었습니다.",
   "steps": [
@@ -91,7 +100,8 @@ Response Body
     "calendar.create_event: 일정 생성 요청이 접수되었습니다.",
     "loop=1"
   ],
-  "approvalId": ""
+  "approvalId": "",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -102,15 +112,23 @@ MVP 상태(세션/승인 대기/provider/tool 목록) 조회 API입니다.
 Response Body
 ```json
 {
+  "version": "v1",
   "sessionCount": 1,
   "pendingApprovalCount": 0,
   "llmProvider": "ollama",
   "tools": [
+    "calendar.list_calendars",
     "calendar.list_events",
     "calendar.create_event",
+    "mail.list_folders",
+    "mail.list_messages",
+    "mail.read_message",
+    "mail.send_message",
+    "messenger.send_message",
     "http.request",
     "fs.read"
-  ]
+  ],
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -177,8 +195,11 @@ Response Body
 
 ```json
 {
+  "version": "v1",
   "status": "bad_request",
-  "message": "요청 값 검증에 실패했습니다."
+  "errorCode": "VALIDATION_ERROR",
+  "message": "요청 값 검증에 실패했습니다.",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -186,8 +207,11 @@ Response Body
 
 ```json
 {
+  "version": "v1",
   "status": "error",
-  "message": "내부 오류가 발생했습니다."
+  "errorCode": "INTERNAL_ERROR",
+  "message": "내부 오류가 발생했습니다.",
+  "correlationId": "a4abf147-0d9a-4b1b-b17b-6f9ebd6ef10d"
 }
 ```
 
@@ -234,5 +258,22 @@ curl http://localhost:8080/ollama/models/select/default
 ## 9) 클라이언트 구현 팁
 - `sessionId`는 클라이언트 대화 탭 단위로 고정 유지
 - `approval_required` 수신 시 승인 모달을 띄우고 `approvalId` 저장
+- `approve-and-resume`는 동일 `approvalId` 재호출 시 동일 결과를 반환하도록 idempotent 처리됩니다.
+- `correlationId`와 `X-Correlation-Id`를 Electron 로그에 함께 남기면 서버 추적이 쉬워집니다.
 - `steps`는 디버그 패널에 노출하면 MVP 동작 추적에 유용
 - 타임아웃은 클라이언트에서 10~15초 기준으로 우선 적용 권장
+
+## 10) Phase 3 Tool 범위
+- `calendar.list_calendars`
+- `calendar.list_events`
+- `calendar.create_event`
+- `mail.list_folders`
+- `mail.list_messages`
+- `mail.read_message`
+- `mail.send_message`
+- `messenger.send_message`
+- `http.request`
+
+`calendar/*`, `mail/*`, `messenger/*` 는 `.agent/work/api_collection.json` 기준 Daou Portal OpenAPI v2 endpoint로 실제 연결됩니다.
+
+민감정보(`client_secret`, `username`, `password`)는 `application.yaml`에 직접 커밋하지 않고 환경변수로 주입해야 합니다.

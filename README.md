@@ -48,6 +48,8 @@ DaouOffice Desktop Agent용 Spring AI Backend MVP입니다.
 - `POST /approvals/{id}/reject`
 - `POST /approvals/{id}/approve-and-resume`
 
+응답 계약은 phase3부터 `version: "v1"` 와 `correlationId`를 고정 제공합니다.
+
 ### Chat 요청 예시
 ```text
 POST /chat
@@ -60,12 +62,20 @@ POST /chat
 ### Chat 응답 예시
 ```text
 {
+  "version": "v1",
   "status": "approval_required",
   "message": "승인이 필요한 도구입니다: calendar.create_event",
   "steps": ["loop=1", "calendar.create_event"],
-  "approvalId": "..."
+  "approvalId": "...",
+  "correlationId": "..."
 }
 ```
+
+## Phase 3
+- `.agent/work/api_collection.json` 기반 Daou Portal 실제 연동 추가
+- Calendar / Mail / Messenger tool adapter 분리
+- approval resume idempotency 및 context 검증 추가
+- `X-Correlation-Id` 헤더, 구조화 로그, 응답 버전 관리 추가
 
 ## 클라이언트 문서
 - [MVP Client API Guide](docs/mvp-client-api-guide.md)
