@@ -1,8 +1,10 @@
 package com.daou.agent.api.chat;
 
+import com.daou.agent.api.common.ApiContract;
 import com.daou.agent.application.agent.AgentRunner;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.agent.LoopStep;
+import com.daou.agent.infrastructure.logging.CorrelationIdHolder;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,10 +28,12 @@ public class ChatController {
                 .toList();
 
         return new ChatResponse(
+                ApiContract.VERSION,
                 result.status().name().toLowerCase(),
                 result.message(),
                 stepDetails,
-                result.approvalId()
+                result.approvalId(),
+                CorrelationIdHolder.getOrCreate()
         );
     }
 }

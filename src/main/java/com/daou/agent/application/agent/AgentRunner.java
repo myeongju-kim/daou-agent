@@ -7,11 +7,15 @@ import com.daou.agent.domain.agent.AgentContext;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.agent.AgentStatus;
 import com.daou.agent.domain.session.Session;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AgentRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentRunner.class);
 
     private final SessionService sessionService;
     private final MemoryService memoryService;
@@ -34,6 +38,7 @@ public class AgentRunner {
     }
 
     public AgentResult run(String sessionId, String message) {
+        log.info("event=agent.run.start sessionId={} messageLength={}", sessionId, message == null ? 0 : message.length());
         Session session = sessionService.getOrCreate(sessionId);
 
         if ("ollama".equalsIgnoreCase(llmProvider) && session.getSelectedModel().isBlank()) {
@@ -53,6 +58,8 @@ public class AgentRunner {
             sessionService.appendAssistantMessage(session.getId(), result.message());
         }
 
+        log.info("event=agent.run.finish sessionId={} status={} approvalId={}",
+                sessionId, result.status().name(), result.approvalId());
         return result;
     }
 }

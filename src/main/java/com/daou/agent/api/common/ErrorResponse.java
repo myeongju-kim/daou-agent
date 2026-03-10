@@ -1,9 +1,9 @@
-package com.daou.agent.api.approval;
+package com.daou.agent.api.common;
 
-public record ApprovalResponse(
+public record ErrorResponse(
         String version,
-        String approvalId,
         String status,
+        String errorCode,
         String message,
         String correlationId
 ) {

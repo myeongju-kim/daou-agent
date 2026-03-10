@@ -15,11 +15,15 @@ import com.daou.agent.domain.tool.ToolDefinition;
 import com.daou.agent.domain.tool.ToolRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AgentLoopEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentLoopEngine.class);
 
     private final LlmClient llmClient;
     private final ToolExecutor toolExecutor;
@@ -48,10 +52,13 @@ public class AgentLoopEngine {
         List<LoopStep> steps = new ArrayList<>();
 
         for (int i = 0; i < maxLoop; i++) {
+            log.info("event=agent.loop.think sessionId={} loop={} selectedModel={}",
+                    context.getSessionId(), i + 1, context.getSelectedModel());
             LlmResponse response = llmClient.generate(context);
             steps.add(new LoopStep("think", "loop=" + (i + 1)));
 
             if (response.isFinalAnswer()) {
+                log.info("event=agent.loop.final sessionId={} loop={}", context.getSessionId(), i + 1);
                 return AgentResult.ok(response.finalAnswer(), steps);
             }
 
@@ -61,6 +68,8 @@ public class AgentLoopEngine {
 
             ToolCallRequest toolCall = response.toolCallRequest();
             ApprovalDecision decision = approvalPolicy.check(toolCall);
+            log.info("event=agent.loop.tool_decision sessionId={} toolName={} requiresApproval={} blocked={}",
+                    context.getSessionId(), toolCall.toolName(), decision.requiresApproval(), decision.blocked());
 
             if (decision.blocked()) {
                 steps.add(new LoopStep("blocked", decision.message()));
@@ -74,7 +83,10 @@ public class AgentLoopEngine {
                 ApprovalRequest approvalRequest = approvalService.create(
                         context.getSessionId(),
                         toolCall,
-                        definition.riskLevel()
+                        definition.riskLevel(),
+                        context.getCurrentUserMessage(),
+                        context.getSummary(),
+                        context.getSelectedModel()
                 );
                 steps.add(new LoopStep("approval_required", toolCall.toolName()));
                 return AgentResult.approvalRequired(
@@ -87,6 +99,8 @@ public class AgentLoopEngine {
             ToolCallResult toolResult = toolExecutor.execute(toolCall);
             context.addToolResult(toolResult);
             steps.add(new LoopStep("tool_result", toolResult.toolName() + ": " + toolResult.message()));
+            log.info("event=agent.loop.tool_result sessionId={} toolName={} status={}",
+                    context.getSessionId(), toolResult.toolName(), toolResult.status());
         }
 
         steps.add(new LoopStep("error", "max loop reached"));
