@@ -6,15 +6,16 @@ import com.daou.agent.domain.agent.AgentContext;
 import com.daou.agent.domain.session.SessionMessage;
 import com.daou.agent.domain.tool.ToolCallResult;
 import com.daou.agent.domain.tool.ToolRegistry;
-import java.util.List;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.web.client.RestClient;
 
 public class SpringAiLlmClient implements LlmClient {
 
@@ -22,19 +23,26 @@ public class SpringAiLlmClient implements LlmClient {
     private final ToolRegistry toolRegistry;
     private final LlmJsonResponseParser responseParser;
     private final ChatClient chatClient;
-    private final ChatModel chatModel;
+    private final ObjectMapper objectMapper;
+    private final RestClient ollamaRestClient;
+    private final String defaultOllamaModel;
 
     public SpringAiLlmClient(
             String provider,
             ChatModel chatModel,
             ToolRegistry toolRegistry,
-            LlmJsonResponseParser responseParser
+            LlmJsonResponseParser responseParser,
+            ObjectMapper objectMapper,
+            String ollamaBaseUrl,
+            String defaultOllamaModel
     ) {
         this.provider = provider;
         this.toolRegistry = toolRegistry;
         this.responseParser = responseParser;
-        this.chatModel = chatModel;
+        this.objectMapper = objectMapper;
         this.chatClient = ChatClient.create(chatModel);
+        this.ollamaRestClient = RestClient.builder().baseUrl(ollamaBaseUrl).build();
+        this.defaultOllamaModel = defaultOllamaModel == null ? "" : defaultOllamaModel.trim();
     }
 
     @Override
@@ -45,10 +53,14 @@ public class SpringAiLlmClient implements LlmClient {
         try {
             String selectedModel = context.getSelectedModel();
 
-            // Ollama는 Prompt + OllamaChatOptions 경로로 모델 override를 강제 적용한다.
-            if ("ollama".equalsIgnoreCase(provider) && !selectedModel.isBlank()) {
-                String raw = callWithOllamaModelOverride(systemPrompt, userPrompt, selectedModel);
-                return responseParser.parse(raw);
+            // Spring AI ThinkOption 직렬화와 서버 버전 호환 이슈를 피하기 위해
+            // Ollama는 REST로 think=false(boolean)를 직접 보낸다.
+            if ("ollama".equalsIgnoreCase(provider)) {
+                String model = selectedModel.isBlank() ? defaultOllamaModel : selectedModel;
+                if (!model.isBlank()) {
+                    String raw = callOllamaNoThink(systemPrompt, userPrompt, model);
+                    return responseParser.parse(raw);
+                }
             }
 
             ChatClient.ChatClientRequestSpec requestSpec = chatClient.prompt()
@@ -63,12 +75,28 @@ public class SpringAiLlmClient implements LlmClient {
         }
     }
 
-    private String callWithOllamaModelOverride(String systemPrompt, String userPrompt, String selectedModel) {
-        Prompt prompt = new Prompt(
-                List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt)),
-                OllamaChatOptions.builder().model(selectedModel).build()
-        );
-        return chatModel.call(prompt).getResult().getOutput().getText();
+    private String callOllamaNoThink(String systemPrompt, String userPrompt, String model) {
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("stream", false);
+        requestBody.put("think", false);
+        requestBody.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+        ));
+
+        Object response = ollamaRestClient.post()
+                .uri("/api/chat")
+                .body(requestBody)
+                .retrieve()
+                .body(Object.class);
+
+        JsonNode root = objectMapper.valueToTree(response);
+        String content = root.path("message").path("content").asText("");
+        if (content.isBlank()) {
+            throw new IllegalStateException("Ollama 응답에서 message.content를 찾지 못했습니다.");
+        }
+        return content;
     }
 
     private String buildSystemPrompt() {
