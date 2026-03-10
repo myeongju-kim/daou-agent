@@ -4,6 +4,7 @@ import com.daou.agent.application.port.LlmClient;
 import com.daou.agent.domain.common.RiskLevel;
 import com.daou.agent.domain.tool.ToolDefinition;
 import com.daou.agent.domain.tool.ToolRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.daou.agent.infrastructure.llm.LlmClientFactory;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,5 +30,10 @@ public class AgentConfig {
             @Value("${agent.llm-provider:ollama}") String provider
     ) {
         return llmClientFactory.create(provider);
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }

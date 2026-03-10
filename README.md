@@ -41,8 +41,12 @@ DaouOffice Desktop Agent용 Spring AI Backend MVP입니다.
 ## API
 - `POST /chat`
 - `GET /dashboard`
+- `GET /ollama/models`
+- `POST /ollama/models/select`
+- `GET /ollama/models/select/{sessionId}`
 - `POST /approvals/{id}/approve`
 - `POST /approvals/{id}/reject`
+- `POST /approvals/{id}/approve-and-resume`
 
 ### Chat 요청 예시
 ```text

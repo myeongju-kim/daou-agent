@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class Session {
     private final String id;
     private final List<SessionMessage> messages = new ArrayList<>();
     private String summary = "";
+    private String selectedModel = "";
 
     public Session(String id) {
         if (id == null || id.isBlank()) {
@@ -38,11 +40,29 @@ public class Session {
         messages.add(SessionMessage.toolResult(content));
     }
 
+    public Optional<String> latestUserMessage() {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            SessionMessage message = messages.get(i);
+            if (message.role() == MessageRole.USER) {
+                return Optional.of(message.content());
+            }
+        }
+        return Optional.empty();
+    }
+
     public String getSummary() {
         return summary;
     }
 
     public void updateSummary(String summary) {
         this.summary = Objects.requireNonNullElse(summary, "");
+    }
+
+    public String getSelectedModel() {
+        return selectedModel;
+    }
+
+    public void setSelectedModel(String selectedModel) {
+        this.selectedModel = selectedModel == null ? "" : selectedModel.trim();
     }
 }

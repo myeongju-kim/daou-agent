@@ -19,6 +19,12 @@ public class MemoryService {
         List<SessionMessage> messages = session.getMessages();
         int from = Math.max(0, messages.size() - recentMessageCount);
         List<SessionMessage> recent = messages.subList(from, messages.size());
-        return new AgentContext(session.getId(), session.getSummary(), recent, currentUserMessage);
+        return new AgentContext(
+                session.getId(),
+                session.getSummary(),
+                recent,
+                currentUserMessage,
+                session.getSelectedModel()
+        );
     }
 }
