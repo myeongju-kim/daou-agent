@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -53,15 +54,6 @@ public class JdbcSessionRepository implements SessionRepository {
             return Optional.empty();
         }
         Session session = sessions.get(0);
-        List<SessionMessage> messages = jdbcTemplate.query("""
-                        SELECT role, type, content, created_at
-                        FROM agent_session_messages
-                        WHERE session_id = ?
-                        ORDER BY message_order ASC, id ASC
-                        """,
-                MESSAGE_ROW_MAPPER,
-                sessionId
-        );
         return Optional.of(Session.restore(
                 session.getId(),
                 session.getAgentKey(),
@@ -70,8 +62,48 @@ public class JdbcSessionRepository implements SessionRepository {
                 session.getSelectedModel(),
                 session.getCreatedAt(),
                 session.getUpdatedAt(),
-                messages
+                loadMessages(sessionId)
         ));
+    }
+
+    @Override
+    public List<Session> findAllByAgentKey(String agentKey, int limit) {
+        List<Session> sessions = jdbcTemplate.query("""
+                        SELECT id, agent_key, title, summary, selected_model, created_at, updated_at
+                        FROM agent_sessions
+                        WHERE agent_key = ?
+                        ORDER BY updated_at DESC, created_at DESC
+                        LIMIT ?
+                        """,
+                (rs, rowNum) -> mapSession(rs),
+                agentKey,
+                limit
+        );
+        return sessions.stream()
+                .map(session -> Session.restore(
+                        session.getId(),
+                        session.getAgentKey(),
+                        session.getTitle(),
+                        session.getSummary(),
+                        session.getSelectedModel(),
+                        session.getCreatedAt(),
+                        session.getUpdatedAt(),
+                        loadMessages(session.getId())
+                ))
+                .sorted(Comparator.comparing(Session::getUpdatedAt).reversed())
+                .toList();
+    }
+
+    private List<SessionMessage> loadMessages(String sessionId) {
+        return jdbcTemplate.query("""
+                        SELECT role, type, content, created_at
+                        FROM agent_session_messages
+                        WHERE session_id = ?
+                        ORDER BY message_order ASC, id ASC
+                        """,
+                MESSAGE_ROW_MAPPER,
+                sessionId
+        );
     }
 
     @Override

@@ -2,6 +2,8 @@ package com.daou.agent.infrastructure.persistence;
 
 import com.daou.agent.application.port.SessionRepository;
 import com.daou.agent.domain.session.Session;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +24,15 @@ public class InMemorySessionRepository implements SessionRepository {
     @Override
     public Optional<Session> findById(String sessionId) {
         return Optional.ofNullable(sessions.get(sessionId));
+    }
+
+    @Override
+    public List<Session> findAllByAgentKey(String agentKey, int limit) {
+        return sessions.values().stream()
+                .filter(session -> session.getAgentKey().equals(agentKey))
+                .sorted(Comparator.comparing(Session::getUpdatedAt).reversed())
+                .limit(limit)
+                .toList();
     }
 
     @Override

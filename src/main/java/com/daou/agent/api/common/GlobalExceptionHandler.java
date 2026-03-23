@@ -1,6 +1,7 @@
 package com.daou.agent.api.common;
 
 import com.daou.agent.infrastructure.logging.CorrelationIdHolder;
+import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,18 @@ public class GlobalExceptionHandler {
                         "bad_request",
                         "VALIDATION_ERROR",
                         "요청 값 검증에 실패했습니다.",
+                        CorrelationIdHolder.getOrCreate()
+                ));
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(NoSuchElementException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        ApiContract.VERSION,
+                        "not_found",
+                        "NOT_FOUND",
+                        e.getMessage(),
                         CorrelationIdHolder.getOrCreate()
                 ));
     }
