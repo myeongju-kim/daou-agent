@@ -75,6 +75,7 @@ public class ApprovalResumeService {
             steps.add(new LoopStep("tool_result", toolResult.toolName() + ": " + toolResult.message()));
             sessionService.appendToolResult(session.getId(), toolResult.message());
 
+            session = sessionService.getOrCreate(approvalRequest.getSessionId());
             AgentContext context = memoryService.buildContext(session, latestUserMessage);
             context.addToolResult(toolResult);
 

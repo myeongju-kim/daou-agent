@@ -46,6 +46,7 @@ public class ApprovalService {
     public ApprovalStatus approve(String approvalId) {
         ApprovalRequest request = getById(approvalId);
         ApprovalStatus status = request.approve();
+        approvalRepository.save(request);
         log.info("event=approval.approve approvalId={} status={}", approvalId, status.name());
         return status;
     }
@@ -53,12 +54,14 @@ public class ApprovalService {
     public ApprovalRequest approveAndGet(String approvalId) {
         ApprovalRequest request = getById(approvalId);
         request.approve();
+        approvalRepository.save(request);
         return request;
     }
 
     public ApprovalStatus reject(String approvalId) {
         ApprovalRequest request = getById(approvalId);
         ApprovalStatus status = request.reject();
+        approvalRepository.save(request);
         log.info("event=approval.reject approvalId={} status={}", approvalId, status.name());
         return status;
     }

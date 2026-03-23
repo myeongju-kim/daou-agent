@@ -28,7 +28,35 @@ public class ApprovalRequest {
             String selectedModelSnapshot,
             String createdCorrelationId
     ) {
-        this.id = UUID.randomUUID().toString();
+        this(
+                UUID.randomUUID().toString(),
+                sessionId,
+                toolCall,
+                riskLevel,
+                requestedUserMessage,
+                summarySnapshot,
+                selectedModelSnapshot,
+                createdCorrelationId,
+                Instant.now(),
+                ApprovalStatus.PENDING,
+                null
+        );
+    }
+
+    private ApprovalRequest(
+            String id,
+            String sessionId,
+            ToolCallRequest toolCall,
+            RiskLevel riskLevel,
+            String requestedUserMessage,
+            String summarySnapshot,
+            String selectedModelSnapshot,
+            String createdCorrelationId,
+            Instant createdAt,
+            ApprovalStatus status,
+            Instant decidedAt
+    ) {
+        this.id = id;
         this.sessionId = sessionId;
         this.toolCall = toolCall;
         this.riskLevel = riskLevel;
@@ -36,8 +64,37 @@ public class ApprovalRequest {
         this.summarySnapshot = summarySnapshot == null ? "" : summarySnapshot;
         this.selectedModelSnapshot = selectedModelSnapshot == null ? "" : selectedModelSnapshot;
         this.createdCorrelationId = createdCorrelationId == null ? "" : createdCorrelationId;
-        this.createdAt = Instant.now();
-        this.status = ApprovalStatus.PENDING;
+        this.createdAt = createdAt;
+        this.status = status == null ? ApprovalStatus.PENDING : status;
+        this.decidedAt = decidedAt;
+    }
+
+    public static ApprovalRequest restore(
+            String id,
+            String sessionId,
+            ToolCallRequest toolCall,
+            RiskLevel riskLevel,
+            String requestedUserMessage,
+            String summarySnapshot,
+            String selectedModelSnapshot,
+            String createdCorrelationId,
+            Instant createdAt,
+            ApprovalStatus status,
+            Instant decidedAt
+    ) {
+        return new ApprovalRequest(
+                id,
+                sessionId,
+                toolCall,
+                riskLevel,
+                requestedUserMessage,
+                summarySnapshot,
+                selectedModelSnapshot,
+                createdCorrelationId,
+                createdAt,
+                status,
+                decidedAt
+        );
     }
 
     public String getId() {

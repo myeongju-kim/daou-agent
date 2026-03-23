@@ -1,6 +1,14 @@
 spring:
   application:
     name: daouoffice-agent
+  datasource:
+    url: ${AGENT_DB_URL:jdbc:mariadb://127.0.0.1:3306/daou_agent?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8}
+    username: ${AGENT_DB_USERNAME:root}
+    password: ${AGENT_DB_PASSWORD:}
+    driver-class-name: org.mariadb.jdbc.Driver
+  sql:
+    init:
+      mode: always
   ai:
     model:
       chat: ollama
@@ -8,6 +16,8 @@ spring:
       api-key: ${OPENAI_API_KEY:test-key}
 
 agent:
+  storage:
+    type: jdbc
   llm-provider: ollama
   max-loop: 5
   recent-message-count: 12
