@@ -13,3 +13,16 @@ agent:
   recent-message-count: 12
   cors:
     allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+  tools:
+    default-timeout-ms: 5000
+    default-max-attempts: 2
+  daou-portal:
+    base-url: https://portal.daou.co.kr/openapi2/v2
+    auth-url: https://portal.daou.co.kr/oauth/token
+    client-id: ae73df48d75f1eea0e7c6cc940d8724b
+    client-secret: ${DAOU_PORTAL_CLIENT_SECRET:__REDACTED__}
+    username: ${DAOU_PORTAL_USERNAME:__REDACTED__}
+    password: ${DAOU_PORTAL_PASSWORD:__REDACTED__}
+    default-calendar-id: 7627
+    default-attendee-id: 5397
+    token-refresh-skew-seconds: 60

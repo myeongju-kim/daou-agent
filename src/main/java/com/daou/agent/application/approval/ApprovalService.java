@@ -5,10 +5,15 @@ import com.daou.agent.domain.approval.ApprovalRequest;
 import com.daou.agent.domain.common.ApprovalStatus;
 import com.daou.agent.domain.common.RiskLevel;
 import com.daou.agent.domain.tool.ToolCallRequest;
+import com.daou.agent.infrastructure.logging.CorrelationIdHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ApprovalService {
+
+    private static final Logger log = LoggerFactory.getLogger(ApprovalService.class);
 
     private final ApprovalRepository approvalRepository;
 
@@ -16,14 +21,33 @@ public class ApprovalService {
         this.approvalRepository = approvalRepository;
     }
 
-    public ApprovalRequest create(String sessionId, ToolCallRequest toolCall, RiskLevel riskLevel) {
-        return approvalRepository.save(new ApprovalRequest(sessionId, toolCall, riskLevel));
+    public ApprovalRequest create(
+            String sessionId,
+            ToolCallRequest toolCall,
+            RiskLevel riskLevel,
+            String requestedUserMessage,
+            String summarySnapshot,
+            String selectedModelSnapshot
+    ) {
+        ApprovalRequest approvalRequest = new ApprovalRequest(
+                sessionId,
+                toolCall,
+                riskLevel,
+                requestedUserMessage,
+                summarySnapshot,
+                selectedModelSnapshot,
+                CorrelationIdHolder.getOrCreate()
+        );
+        log.info("event=approval.create approvalId={} sessionId={} toolName={} riskLevel={}",
+                approvalRequest.getId(), sessionId, toolCall.toolName(), riskLevel.name());
+        return approvalRepository.save(approvalRequest);
     }
 
     public ApprovalStatus approve(String approvalId) {
         ApprovalRequest request = getById(approvalId);
-        request.approve();
-        return request.getStatus();
+        ApprovalStatus status = request.approve();
+        log.info("event=approval.approve approvalId={} status={}", approvalId, status.name());
+        return status;
     }
 
     public ApprovalRequest approveAndGet(String approvalId) {
@@ -34,8 +58,9 @@ public class ApprovalService {
 
     public ApprovalStatus reject(String approvalId) {
         ApprovalRequest request = getById(approvalId);
-        request.reject();
-        return request.getStatus();
+        ApprovalStatus status = request.reject();
+        log.info("event=approval.reject approvalId={} status={}", approvalId, status.name());
+        return status;
     }
 
     public ApprovalRequest getById(String approvalId) {
