@@ -3,6 +3,7 @@ package com.daou.agent.infrastructure.external.daou;
 import com.daou.agent.infrastructure.tool.ToolExecutionException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -135,7 +136,7 @@ public class DaouPortalClient {
         return objectMapper.valueToTree(response.getBody() == null ? Map.of() : response.getBody());
     }
 
-    private String buildUri(UriBuilder uriBuilder, String path, Map<String, ?> queryParams) {
+    private URI buildUri(UriBuilder uriBuilder, String path, Map<String, ?> queryParams) {
         UriBuilder current = uriBuilder.path(path);
         for (Map.Entry<String, ?> entry : queryParams.entrySet()) {
             Object value = entry.getValue();
@@ -148,7 +149,7 @@ public class DaouPortalClient {
             }
             current = current.queryParam(entry.getKey(), text);
         }
-        return current.build().toString();
+        return current.build();
     }
 
     private ToolExecutionException convertError(String path, RestClientResponseException e) {

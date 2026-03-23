@@ -38,8 +38,12 @@ public class AgentRunner {
     }
 
     public AgentResult run(String sessionId, String message) {
+        return run(Session.DEFAULT_AGENT_KEY, sessionId, message);
+    }
+
+    public AgentResult run(String agentKey, String sessionId, String message) {
         log.info("event=agent.run.start sessionId={} messageLength={}", sessionId, message == null ? 0 : message.length());
-        Session session = sessionService.getOrCreate(sessionId);
+        Session session = sessionService.getOrCreate(sessionId, agentKey);
 
         if ("ollama".equalsIgnoreCase(llmProvider) && session.getSelectedModel().isBlank()) {
             try {
@@ -50,12 +54,18 @@ public class AgentRunner {
         }
 
         sessionService.appendUserMessage(session.getId(), message);
+        session = sessionService.getOrCreate(sessionId, agentKey);
+        String resolvedSessionId = session.getId();
 
         AgentContext context = memoryService.buildContext(session, message);
         AgentResult result = agentLoopEngine.execute(context);
 
+        result.steps().stream()
+                .filter(step -> "tool_result".equals(step.type()))
+                .forEach(step -> sessionService.appendToolResult(resolvedSessionId, step.detail()));
+
         if (result.status() == AgentStatus.OK) {
-            sessionService.appendAssistantMessage(session.getId(), result.message());
+            sessionService.appendAssistantMessage(resolvedSessionId, result.message());
         }
 
         log.info("event=agent.run.finish sessionId={} status={} approvalId={}",

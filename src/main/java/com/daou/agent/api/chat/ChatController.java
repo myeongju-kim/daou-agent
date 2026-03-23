@@ -22,7 +22,7 @@ public class ChatController {
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        AgentResult result = agentRunner.run(request.sessionId(), request.message());
+        AgentResult result = agentRunner.run(request.normalizedAgentKey(), request.sessionId(), request.message());
         List<String> stepDetails = result.steps().stream()
                 .map(LoopStep::detail)
                 .toList();
