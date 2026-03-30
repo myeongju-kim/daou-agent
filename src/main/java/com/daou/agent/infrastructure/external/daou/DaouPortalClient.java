@@ -40,7 +40,8 @@ public class DaouPortalClient {
     }
 
     public List<Map<String, Object>> listCalendars() {
-        return asList(get("/v1/calendar/list", Map.of()));
+        JsonNode response = getWithFallback(List.of("/v1/calendar/list", "/v1/calendar"), Map.of());
+        return asList(response);
     }
 
     public List<Map<String, Object>> listEvents(String calendarIds, String timeMin, String timeMax) {
@@ -92,6 +93,33 @@ public class DaouPortalClient {
 
     private JsonNode get(String path, Map<String, ?> queryParams) {
         return exchange(HttpMethod.GET, path, queryParams, null);
+    }
+
+    private JsonNode getWithFallback(List<String> paths, Map<String, ?> queryParams) {
+        ToolExecutionException lastError = null;
+        for (int i = 0; i < paths.size(); i++) {
+            String path = paths.get(i);
+            try {
+                return get(path, queryParams);
+            } catch (ToolExecutionException e) {
+                lastError = e;
+                boolean hasNext = i < paths.size() - 1;
+                if (!hasNext || !isNotFoundError(e)) {
+                    throw e;
+                }
+                String nextPath = paths.get(i + 1);
+                log.warn(
+                        "event=daou.api.call.fallback fromPath={} toPath={} reason={}",
+                        path,
+                        nextPath,
+                        e.getMessage()
+                );
+            }
+        }
+
+        throw lastError == null
+                ? new ToolExecutionException("Daou Portal API 호출 경로를 찾지 못했습니다.", false)
+                : lastError;
     }
 
     private JsonNode post(String path, Object body) {
@@ -156,6 +184,10 @@ public class DaouPortalClient {
         String message = "Daou Portal API 호출 실패(path=%s, status=%s)".formatted(path, e.getStatusCode().value());
         log.warn("event=daou.api.call.failed path={} status={} message={}", path, e.getStatusCode().value(), e.getMessage());
         return new ToolExecutionException(message, e, e.getStatusCode().is5xxServerError());
+    }
+
+    private boolean isNotFoundError(ToolExecutionException e) {
+        return e.getMessage() != null && e.getMessage().contains("status=404");
     }
 
     private Map<String, Object> asMap(JsonNode node) {

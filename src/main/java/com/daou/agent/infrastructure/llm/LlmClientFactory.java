@@ -20,6 +20,9 @@ public class LlmClientFactory {
     private final ObjectMapper objectMapper;
     private final String ollamaBaseUrl;
     private final String defaultOllamaModel;
+    private final int ollamaConnectTimeoutMs;
+    private final int ollamaReadTimeoutMs;
+    private final int ollamaMaxRetries;
 
     public LlmClientFactory(
             ObjectProvider<OpenAiChatModel> openAiChatModelProvider,
@@ -28,7 +31,10 @@ public class LlmClientFactory {
             ToolRegistry toolRegistry,
             ObjectMapper objectMapper,
             @Value("${spring.ai.ollama.base-url:http://localhost:11434}") String ollamaBaseUrl,
-            @Value("${spring.ai.ollama.chat.options.model:}") String defaultOllamaModel
+            @Value("${spring.ai.ollama.chat.options.model:}") String defaultOllamaModel,
+            @Value("${agent.ollama.connect-timeout-ms:5000}") int ollamaConnectTimeoutMs,
+            @Value("${agent.ollama.read-timeout-ms:120000}") int ollamaReadTimeoutMs,
+            @Value("${agent.ollama.max-retries:2}") int ollamaMaxRetries
     ) {
         this.openAiChatModelProvider = openAiChatModelProvider;
         this.ollamaChatModelProvider = ollamaChatModelProvider;
@@ -37,6 +43,9 @@ public class LlmClientFactory {
         this.objectMapper = objectMapper;
         this.ollamaBaseUrl = ollamaBaseUrl;
         this.defaultOllamaModel = defaultOllamaModel;
+        this.ollamaConnectTimeoutMs = ollamaConnectTimeoutMs;
+        this.ollamaReadTimeoutMs = ollamaReadTimeoutMs;
+        this.ollamaMaxRetries = ollamaMaxRetries;
     }
 
     public LlmClient create(String provider) {
@@ -55,7 +64,10 @@ public class LlmClientFactory {
                     responseParser,
                     objectMapper,
                     ollamaBaseUrl,
-                    defaultOllamaModel
+                    defaultOllamaModel,
+                    ollamaConnectTimeoutMs,
+                    ollamaReadTimeoutMs,
+                    ollamaMaxRetries
             );
             case "ollama" -> new SpringAiLlmClient(
                     provider,
@@ -64,7 +76,10 @@ public class LlmClientFactory {
                     responseParser,
                     objectMapper,
                     ollamaBaseUrl,
-                    defaultOllamaModel
+                    defaultOllamaModel,
+                    ollamaConnectTimeoutMs,
+                    ollamaReadTimeoutMs,
+                    ollamaMaxRetries
             );
             default -> throw new IllegalArgumentException("unsupported llm provider: " + provider);
         };

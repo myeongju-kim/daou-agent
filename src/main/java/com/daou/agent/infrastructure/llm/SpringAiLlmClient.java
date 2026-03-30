@@ -13,11 +13,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 public class SpringAiLlmClient implements LlmClient {
+
+    private static final Logger log = LoggerFactory.getLogger(SpringAiLlmClient.class);
 
     private final String provider;
     private final ToolRegistry toolRegistry;
@@ -26,6 +31,8 @@ public class SpringAiLlmClient implements LlmClient {
     private final ObjectMapper objectMapper;
     private final RestClient ollamaRestClient;
     private final String defaultOllamaModel;
+    private final int ollamaMaxRetries;
+    private final int ollamaReadTimeoutMs;
 
     public SpringAiLlmClient(
             String provider,
@@ -34,15 +41,26 @@ public class SpringAiLlmClient implements LlmClient {
             LlmJsonResponseParser responseParser,
             ObjectMapper objectMapper,
             String ollamaBaseUrl,
-            String defaultOllamaModel
+            String defaultOllamaModel,
+            int ollamaConnectTimeoutMs,
+            int ollamaReadTimeoutMs,
+            int ollamaMaxRetries
     ) {
         this.provider = provider;
         this.toolRegistry = toolRegistry;
         this.responseParser = responseParser;
         this.objectMapper = objectMapper;
         this.chatClient = ChatClient.create(chatModel);
-        this.ollamaRestClient = RestClient.builder().baseUrl(ollamaBaseUrl).build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(ollamaConnectTimeoutMs);
+        requestFactory.setReadTimeout(ollamaReadTimeoutMs);
+        this.ollamaRestClient = RestClient.builder()
+                .requestFactory(requestFactory)
+                .baseUrl(ollamaBaseUrl)
+                .build();
         this.defaultOllamaModel = defaultOllamaModel == null ? "" : defaultOllamaModel.trim();
+        this.ollamaReadTimeoutMs = ollamaReadTimeoutMs;
+        this.ollamaMaxRetries = Math.max(1, ollamaMaxRetries);
     }
 
     @Override
@@ -85,18 +103,51 @@ public class SpringAiLlmClient implements LlmClient {
                 Map.of("role", "user", "content", userPrompt)
         ));
 
-        Object response = ollamaRestClient.post()
-                .uri("/api/chat")
-                .body(requestBody)
-                .retrieve()
-                .body(Object.class);
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= ollamaMaxRetries; attempt++) {
+            try {
+                Object response = ollamaRestClient.post()
+                        .uri("/api/chat")
+                        .body(requestBody)
+                        .retrieve()
+                        .body(Object.class);
 
-        JsonNode root = objectMapper.valueToTree(response);
-        String content = root.path("message").path("content").asText("");
-        if (content.isBlank()) {
-            throw new IllegalStateException("Ollama 응답에서 message.content를 찾지 못했습니다.");
+                JsonNode root = objectMapper.valueToTree(response);
+                String content = root.path("message").path("content").asText("");
+                if (content.isBlank()) {
+                    throw new IllegalStateException("Ollama 응답에서 message.content를 찾지 못했습니다.");
+                }
+                return content;
+            } catch (Exception e) {
+                lastError = e;
+                boolean hasNext = attempt < ollamaMaxRetries;
+                log.warn(
+                        "event=ollama.chat.retry attempt={}/{} timeoutMs={} reason={}",
+                        attempt,
+                        ollamaMaxRetries,
+                        ollamaReadTimeoutMs,
+                        e.getMessage()
+                );
+                if (!hasNext) {
+                    break;
+                }
+                sleepBackoff(attempt);
+            }
         }
-        return content;
+
+        throw new IllegalStateException(
+                "Ollama 호출 실패(retries=%d, readTimeoutMs=%d)".formatted(ollamaMaxRetries, ollamaReadTimeoutMs),
+                lastError
+        );
+    }
+
+    private void sleepBackoff(int attempt) {
+        try {
+            long delay = Math.min(2000L, 300L * attempt);
+            Thread.sleep(delay);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String buildSystemPrompt() {
@@ -133,6 +184,8 @@ public class SpringAiLlmClient implements LlmClient {
                 - 도구 호출 시 설명에 나온 필수 인자를 빠짐없이 채운다.
                 - 이미 toolResults가 존재하면 기본적으로 final을 반환한다.
                 - 알 수 없는 값은 임의 생성하지 말고 final로 설명한다.
+                - 일정 조회/브리핑 요청이면 calendar.list_events를 바로 호출하지 말고
+                  calendar.list_calendars 결과로 calendarIds를 확보한 뒤 calendar.list_events를 호출한다.
                 """.formatted(tools, toolDescriptions);
     }
 

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "agent.daou-portal")
 public class DaouPortalProperties {
 
-    private String baseUrl = "https://portal.daou.co.kr/openapi2/v2";
+    private String baseUrl = "https://portal.daou.co.kr/openapi2";
     private String authUrl = "https://portal.daou.co.kr/oauth/token";
     private String clientId = "";
     private String clientSecret = "";
