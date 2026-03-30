@@ -3,7 +3,9 @@ package com.daou.agent.infrastructure.tool;
 import com.daou.agent.application.port.ToolExecutor;
 import com.daou.agent.domain.tool.ToolCallRequest;
 import com.daou.agent.domain.tool.ToolCallResult;
+import com.daou.agent.infrastructure.logging.CorrelationIdHolder;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -45,8 +47,8 @@ public class DefaultToolExecutor implements ToolExecutor {
         }
 
         ToolExecutionPolicy policy = policyResolver.resolve(request.toolName());
-        log.info("event=tool.execute.start toolName={} timeoutMs={} maxAttempts={}",
-                request.toolName(), policy.timeoutMillis(), policy.maxAttempts());
+        log.info("event=tool.execute.start toolName={} timeoutMs={} maxAttempts={} arguments={}",
+                request.toolName(), policy.timeoutMillis(), policy.maxAttempts(), sanitizeArguments(request.arguments()));
 
         ToolCallResult lastResult = null;
 
@@ -94,8 +96,23 @@ public class DefaultToolExecutor implements ToolExecutor {
     }
 
     private ToolCallResult executeOnce(ToolAdapter adapter, ToolCallRequest request, ToolExecutionPolicy policy) {
+        String parentCorrelationId = CorrelationIdHolder.get();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<ToolCallResult> future = executor.submit(() -> adapter.execute(request));
+            Future<ToolCallResult> future = executor.submit(() -> {
+                String previousCorrelationId = CorrelationIdHolder.get();
+                try {
+                    if (!parentCorrelationId.isBlank()) {
+                        CorrelationIdHolder.set(parentCorrelationId);
+                    }
+                    return adapter.execute(request);
+                } finally {
+                    if (previousCorrelationId.isBlank()) {
+                        CorrelationIdHolder.clear();
+                    } else {
+                        CorrelationIdHolder.set(previousCorrelationId);
+                    }
+                }
+            });
             return future.get(policy.timeoutMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             throw new ToolExecutionException(
@@ -112,5 +129,24 @@ public class DefaultToolExecutor implements ToolExecutor {
             }
             throw new ToolExecutionException(cause == null ? "도구 실행 실패" : cause.getMessage(), cause, true);
         }
+    }
+
+    private Map<String, Object> sanitizeArguments(Map<String, Object> arguments) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : arguments.entrySet()) {
+            Object value = entry.getValue();
+            if (value == null) {
+                continue;
+            }
+            String key = entry.getKey();
+            String lower = key.toLowerCase();
+            if (lower.contains("token") || lower.contains("secret") || lower.contains("password")) {
+                sanitized.put(key, "***");
+                continue;
+            }
+            String text = String.valueOf(value);
+            sanitized.put(key, text.length() <= 200 ? text : text.substring(0, 200) + "...(truncated)");
+        }
+        return sanitized;
     }
 }
