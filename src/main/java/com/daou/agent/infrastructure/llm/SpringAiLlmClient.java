@@ -184,6 +184,9 @@ public class SpringAiLlmClient implements LlmClient {
                 - 도구 호출 시 설명에 나온 필수 인자를 빠짐없이 채운다.
                 - 이미 toolResults가 존재하면 기본적으로 final을 반환한다.
                 - 알 수 없는 값은 임의 생성하지 말고 final로 설명한다.
+                - 메일 발송/일정 등록/메신저 전송 같은 실행형 요청에서는 final을 반환하지 말고
+                  반드시 tool_call을 먼저 반환한다.
+                - 도구 실행 전에는 "보냈습니다/발송했습니다/등록했습니다/하겠습니다" 같은 약속/완료 표현을 금지한다.
                 - 일정 조회/브리핑 요청이면 calendar.list_events를 바로 호출하지 말고
                   calendar.list_calendars 결과로 calendarIds를 확보한 뒤 calendar.list_events를 호출한다.
                 """.formatted(tools, toolDescriptions);
