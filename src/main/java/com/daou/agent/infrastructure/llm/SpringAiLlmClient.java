@@ -204,6 +204,7 @@ public class SpringAiLlmClient implements LlmClient {
                 - quant.predict_market 호출 시 horizon은 day/week/month 중 하나로 정규화한다.
                 - 문서/RAG 에이전트(agentKey=doc-rag)에서는 final 답변 전에 rag.search_documents를 먼저 호출한다.
                 - rag.search_documents 호출 시 query에는 사용자의 핵심 키워드를 넣고 limit은 3~10 범위에서 지정한다.
+                - 문서 검색 키워드에 오타가 의심되면 자연스러운 표현으로 보정한 query를 사용한다. (예: 겔제하기 -> 결제하기)
                 """.formatted(agentKey, intent, agentHint, tools, toolDescriptions);
     }
 

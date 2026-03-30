@@ -8,9 +8,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,18 @@ import org.springframework.stereotype.Component;
 public class NotionRagToolAdapter implements ToolAdapter {
 
     private static final Pattern SCHEMA_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+    private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[\\s,./|:;!?()\\[\\]{}]+");
+    private static final Set<String> KOREAN_PARTICLES = Set.of("을", "를", "이", "가", "은", "는", "와", "과", "도", "로");
+    private static final Set<String> STOPWORDS = Set.of(
+            "관련", "이슈", "요약", "정리", "모두", "전체", "찾아", "찾기", "조회", "해줘", "해주세요", "해달라", "부탁", "문서",
+            "자료", "정보", "내용"
+    );
+    private static final Map<String, String> TYPO_REPLACEMENTS = Map.ofEntries(
+            Map.entry("겔제", "결제"),
+            Map.entry("결재", "결제"),
+            Map.entry("로긴", "로그인"),
+            Map.entry("로그인하기", "로그인")
+    );
 
     private final String jdbcUrl;
     private final String username;
@@ -66,11 +80,12 @@ public class NotionRagToolAdapter implements ToolAdapter {
 
     @Override
     public ToolCallResult execute(ToolCallRequest request) {
-        String query = firstNonBlank(
+        String rawQuery = firstNonBlank(
                 stringArgument(request, "query", ""),
                 stringArgument(request, "keyword", ""),
                 stringArgument(request, "q", "")
         );
+        String correctedQuery = normalizeTypos(rawQuery);
         String pathQuery = stringArgument(request, "pathQuery", "");
         int limit = clamp(intArgument(request, "limit", defaultLimit), 1, maxLimit);
 
@@ -79,19 +94,32 @@ public class NotionRagToolAdapter implements ToolAdapter {
             try (Connection connection = openConnection()) {
                 long totalDocuments = queryCount(connection, "SELECT count(*) FROM " + schema + ".documents");
                 long totalChunks = queryCount(connection, "SELECT count(*) FROM " + schema + ".chunks");
-                List<Map<String, Object>> matches = queryChunks(connection, query, pathQuery, limit);
+                List<String> keywordCandidates = buildKeywordCandidates(rawQuery);
+                List<Map<String, Object>> matches = List.of();
+                String searchMode = "keyword";
+
+                if (!keywordCandidates.isEmpty()) {
+                    matches = queryChunksByKeywords(connection, keywordCandidates, pathQuery, limit);
+                }
+                if (matches.isEmpty() && !correctedQuery.isBlank()) {
+                    matches = queryChunks(connection, correctedQuery, pathQuery, limit);
+                    searchMode = keywordCandidates.isEmpty() ? "phrase" : "phrase_fallback";
+                }
 
                 Map<String, Object> raw = new LinkedHashMap<>();
                 raw.put("schema", schema);
-                raw.put("query", query);
+                raw.put("query", rawQuery);
+                raw.put("correctedQuery", correctedQuery);
                 raw.put("pathQuery", pathQuery);
                 raw.put("limit", limit);
+                raw.put("searchMode", searchMode);
+                raw.put("keywordCandidates", keywordCandidates);
                 raw.put("totalDocuments", totalDocuments);
                 raw.put("totalChunks", totalChunks);
                 raw.put("matchCount", matches.size());
                 raw.put("matches", matches);
 
-                String message = buildMessage(query, pathQuery, totalDocuments, totalChunks, matches.size());
+                String message = buildMessage(rawQuery, correctedQuery, pathQuery, totalDocuments, totalChunks, matches.size(), searchMode);
                 return ToolCallResult.success(request.toolName(), message, raw);
             }
         } catch (ClassNotFoundException e) {
@@ -162,10 +190,71 @@ public class NotionRagToolAdapter implements ToolAdapter {
         }
     }
 
-    private String buildMessage(String query, String pathQuery, long totalDocuments, long totalChunks, int matchCount) {
-        if (!query.isBlank()) {
+    private List<Map<String, Object>> queryChunksByKeywords(Connection connection, List<String> keywords, String pathQuery, int limit) throws SQLException {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT d.path, c.chunk_index, c.content ")
+                .append("FROM ").append(schema).append(".chunks c ")
+                .append("JOIN ").append(schema).append(".documents d ON d.id = c.document_id");
+
+        List<String> conditions = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        if (!keywords.isEmpty()) {
+            List<String> keywordConditions = new ArrayList<>();
+            for (String keyword : keywords) {
+                keywordConditions.add("c.content ILIKE ?");
+                params.add("%" + keyword + "%");
+            }
+            conditions.add("(" + String.join(" OR ", keywordConditions) + ")");
+        }
+
+        if (!pathQuery.isBlank()) {
+            conditions.add("d.path ILIKE ?");
+            params.add("%" + pathQuery + "%");
+        }
+
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+
+        sql.append(" ORDER BY d.path, c.chunk_index LIMIT ?");
+        params.add(limit);
+
+        try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                statement.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = statement.executeQuery()) {
+                List<Map<String, Object>> rows = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("path", rs.getString("path"));
+                    row.put("chunkIndex", rs.getInt("chunk_index"));
+                    row.put("preview", abbreviate(rs.getString("content"), previewLength));
+                    rows.add(row);
+                }
+                return rows;
+            }
+        }
+    }
+
+    private String buildMessage(
+            String rawQuery,
+            String correctedQuery,
+            String pathQuery,
+            long totalDocuments,
+            long totalChunks,
+            int matchCount,
+            String searchMode
+    ) {
+        if (!rawQuery.isBlank()) {
+            if (!rawQuery.equals(correctedQuery)) {
+                return "키워드 '%s'(보정: '%s') 검색 결과 %d건을 조회했습니다. (mode=%s, documents=%d, chunks=%d)"
+                        .formatted(rawQuery, correctedQuery, matchCount, searchMode, totalDocuments, totalChunks);
+            }
             return "키워드 '%s' 검색 결과 %d건을 조회했습니다. (documents=%d, chunks=%d)"
-                    .formatted(query, matchCount, totalDocuments, totalChunks);
+                    .formatted(rawQuery, matchCount, totalDocuments, totalChunks);
         }
         if (!pathQuery.isBlank()) {
             return "경로 키워드 '%s' 기준으로 %d건을 조회했습니다. (documents=%d, chunks=%d)"
@@ -208,6 +297,70 @@ public class NotionRagToolAdapter implements ToolAdapter {
             }
         }
         return "";
+    }
+
+    private List<String> buildKeywordCandidates(String rawQuery) {
+        String corrected = normalizeTypos(rawQuery);
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String[] phraseTokens = TOKEN_SPLIT_PATTERN.split(corrected);
+        if (phraseTokens.length == 1) {
+            String normalizedSingle = stripKoreanParticle(corrected.trim());
+            maybeAddCandidate(candidates, normalizedSingle);
+        }
+
+        for (String token : phraseTokens) {
+            String normalizedToken = stripKoreanParticle(token.trim());
+            normalizedToken = normalizeTypos(normalizedToken);
+            maybeAddCandidate(candidates, normalizedToken);
+            if (normalizedToken.endsWith("하기") && normalizedToken.length() > 2) {
+                maybeAddCandidate(candidates, normalizedToken.substring(0, normalizedToken.length() - 2));
+            }
+        }
+
+        if (candidates.size() > 8) {
+            return new ArrayList<>(candidates).subList(0, 8);
+        }
+        return new ArrayList<>(candidates);
+    }
+
+    private void maybeAddCandidate(LinkedHashSet<String> candidates, String token) {
+        if (token == null) {
+            return;
+        }
+        String normalized = token.trim();
+        if (normalized.length() < 2) {
+            return;
+        }
+        if (STOPWORDS.contains(normalized)) {
+            return;
+        }
+        candidates.add(normalized);
+    }
+
+    private String normalizeTypos(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String normalized = text.trim();
+        for (Map.Entry<String, String> replacement : TYPO_REPLACEMENTS.entrySet()) {
+            normalized = normalized.replace(replacement.getKey(), replacement.getValue());
+        }
+        return normalized;
+    }
+
+    private String stripKoreanParticle(String token) {
+        if (token == null || token.isBlank()) {
+            return "";
+        }
+        String normalized = token.trim();
+        if (normalized.length() < 2) {
+            return normalized;
+        }
+        String tail = normalized.substring(normalized.length() - 1);
+        if (KOREAN_PARTICLES.contains(tail)) {
+            return normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private String stringArgument(ToolCallRequest request, String key, String defaultValue) {
