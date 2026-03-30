@@ -42,7 +42,30 @@ public class DaouCalendarToolAdapter implements ToolAdapter {
     }
 
     private ToolCallResult listCalendars(ToolCallRequest request) {
-        List<Map<String, Object>> calendars = daouPortalClient.listCalendars();
+        List<Map<String, Object>> calendars;
+        try {
+            calendars = daouPortalClient.listCalendars();
+        } catch (ToolExecutionException e) {
+            if (!isNotFound(e)) {
+                throw e;
+            }
+            calendars = List.of(defaultCalendarFallback());
+            return ToolCallResult.success(
+                    request.toolName(),
+                    "캘린더 목록 API가 404를 반환해 기본 캘린더 1건을 사용했습니다.",
+                    Map.of("calendars", calendars)
+            );
+        }
+
+        if (calendars.isEmpty()) {
+            calendars = List.of(defaultCalendarFallback());
+            return ToolCallResult.success(
+                    request.toolName(),
+                    "캘린더 목록이 비어 있어 기본 캘린더 1건을 사용했습니다.",
+                    Map.of("calendars", calendars)
+            );
+        }
+
         return ToolCallResult.success(
                 request.toolName(),
                 "캘린더 목록 %d건을 조회했습니다.".formatted(calendars.size()),
@@ -51,7 +74,7 @@ public class DaouCalendarToolAdapter implements ToolAdapter {
     }
 
     private ToolCallResult listEvents(ToolCallRequest request) {
-        String calendarIds = stringArgument(request, "calendarIds", String.valueOf(properties.getDefaultCalendarId()));
+        String calendarIds = resolveCalendarIds(request);
         String timeMin = resolveTime(request.arguments().get("timeMin"), defaultStart());
         String timeMax = resolveTime(request.arguments().get("timeMax"), defaultEnd());
         List<Map<String, Object>> events = daouPortalClient.listEvents(calendarIds, timeMin, timeMax);
@@ -140,5 +163,44 @@ public class DaouCalendarToolAdapter implements ToolAdapter {
             return number.longValue();
         }
         return Long.parseLong(value.toString());
+    }
+
+    private String resolveCalendarIds(ToolCallRequest request) {
+        String requested = stringArgument(request, "calendarIds", "");
+        if (!requested.isBlank()) {
+            return requested;
+        }
+
+        try {
+            List<Map<String, Object>> calendars = daouPortalClient.listCalendars();
+            String fromList = calendars.stream()
+                    .map(calendar -> calendar.get("calendarId"))
+                    .filter(value -> value != null && !value.toString().isBlank())
+                    .map(Object::toString)
+                    .distinct()
+                    .reduce((left, right) -> left + "," + right)
+                    .orElse("");
+            if (!fromList.isBlank()) {
+                return fromList;
+            }
+        } catch (ToolExecutionException ignored) {
+            // calendarIds 미지정 상황에서 보조 조회 실패는 기본 캘린더로 fallback 한다.
+        }
+
+        return String.valueOf(properties.getDefaultCalendarId());
+    }
+
+    private Map<String, Object> defaultCalendarFallback() {
+        Map<String, Object> fallback = new LinkedHashMap<>();
+        fallback.put("calendarId", properties.getDefaultCalendarId());
+        fallback.put("calendarName", "기본 캘린더");
+        fallback.put("calendarType", "normal");
+        fallback.put("defaultCalendar", true);
+        fallback.put("fallback", true);
+        return fallback;
+    }
+
+    private boolean isNotFound(ToolExecutionException e) {
+        return e.getMessage() != null && e.getMessage().contains("status=404");
     }
 }

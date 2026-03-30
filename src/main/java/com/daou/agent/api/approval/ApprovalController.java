@@ -6,6 +6,7 @@ import com.daou.agent.application.approval.ApprovalResumeService;
 import com.daou.agent.application.approval.ApprovalService;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.agent.LoopStep;
+import com.daou.agent.domain.approval.ApprovalRequest;
 import com.daou.agent.domain.common.ApprovalStatus;
 import com.daou.agent.infrastructure.logging.CorrelationIdHolder;
 import java.util.List;
@@ -26,25 +27,29 @@ public class ApprovalController {
 
     @PostMapping("/approvals/{id}/approve")
     public ApprovalResponse approve(@PathVariable("id") String approvalId) {
+        ApprovalRequest request = approvalService.getById(approvalId);
         ApprovalStatus status = approvalService.approve(approvalId);
         return new ApprovalResponse(
                 ApiContract.VERSION,
                 approvalId,
                 status.name().toLowerCase(),
                 "승인 처리되었습니다.",
-                CorrelationIdHolder.getOrCreate()
+                CorrelationIdHolder.getOrCreate(),
+                ApprovalInfoResponse.from(request)
         );
     }
 
     @PostMapping("/approvals/{id}/reject")
     public ApprovalResponse reject(@PathVariable("id") String approvalId) {
+        ApprovalRequest request = approvalService.getById(approvalId);
         ApprovalStatus status = approvalService.reject(approvalId);
         return new ApprovalResponse(
                 ApiContract.VERSION,
                 approvalId,
                 status.name().toLowerCase(),
                 "거절 처리되었습니다.",
-                CorrelationIdHolder.getOrCreate()
+                CorrelationIdHolder.getOrCreate(),
+                ApprovalInfoResponse.from(request)
         );
     }
 
@@ -60,7 +65,8 @@ public class ApprovalController {
                 result.message(),
                 stepDetails,
                 result.approvalId(),
-                CorrelationIdHolder.getOrCreate()
+                CorrelationIdHolder.getOrCreate(),
+                null
         );
     }
 }

@@ -1,5 +1,6 @@
 package com.daou.agent.api.chat;
 
+import com.daou.agent.api.approval.ApprovalInfoResponse;
 import java.util.List;
 
 public record ChatResponse(
@@ -8,6 +9,7 @@ public record ChatResponse(
         String message,
         List<String> steps,
         String approvalId,
-        String correlationId
+        String correlationId,
+        ApprovalInfoResponse approval
 ) {
 }

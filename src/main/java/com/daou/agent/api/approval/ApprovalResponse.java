@@ -5,6 +5,7 @@ public record ApprovalResponse(
         String approvalId,
         String status,
         String message,
-        String correlationId
+        String correlationId,
+        ApprovalInfoResponse approval
 ) {
 }

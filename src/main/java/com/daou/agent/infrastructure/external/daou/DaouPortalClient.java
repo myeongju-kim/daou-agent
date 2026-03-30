@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +24,16 @@ import org.springframework.web.util.UriBuilder;
 public class DaouPortalClient {
 
     private static final Logger log = LoggerFactory.getLogger(DaouPortalClient.class);
+    private static final Set<String> SENSITIVE_KEYS = Set.of(
+            "authorization",
+            "token",
+            "password",
+            "secret",
+            "content",
+            "message",
+            "subject",
+            "body"
+    );
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -40,7 +51,8 @@ public class DaouPortalClient {
     }
 
     public List<Map<String, Object>> listCalendars() {
-        return asList(get("/v1/calendar/list", Map.of()));
+        JsonNode response = getWithFallback(List.of("/v1/calendar/list", "/v1/calendar"), Map.of());
+        return asList(response);
     }
 
     public List<Map<String, Object>> listEvents(String calendarIds, String timeMin, String timeMax) {
@@ -94,6 +106,33 @@ public class DaouPortalClient {
         return exchange(HttpMethod.GET, path, queryParams, null);
     }
 
+    private JsonNode getWithFallback(List<String> paths, Map<String, ?> queryParams) {
+        ToolExecutionException lastError = null;
+        for (int i = 0; i < paths.size(); i++) {
+            String path = paths.get(i);
+            try {
+                return get(path, queryParams);
+            } catch (ToolExecutionException e) {
+                lastError = e;
+                boolean hasNext = i < paths.size() - 1;
+                if (!hasNext || !isNotFoundError(e)) {
+                    throw e;
+                }
+                String nextPath = paths.get(i + 1);
+                log.warn(
+                        "event=daou.api.call.fallback fromPath={} toPath={} reason={}",
+                        path,
+                        nextPath,
+                        e.getMessage()
+                );
+            }
+        }
+
+        throw lastError == null
+                ? new ToolExecutionException("Daou Portal API 호출 경로를 찾지 못했습니다.", false)
+                : lastError;
+    }
+
     private JsonNode post(String path, Object body) {
         return exchange(HttpMethod.POST, path, Map.of(), body);
     }
@@ -110,7 +149,7 @@ public class DaouPortalClient {
                 authClient.evict();
                 return exchangeOnce(method, path, queryParams, body, true);
             }
-            throw convertError(path, e);
+            throw convertError(path, queryParams, body, e);
         }
     }
 
@@ -122,7 +161,18 @@ public class DaouPortalClient {
             boolean refreshed
     ) {
         String token = authClient.getAccessToken();
-        log.info("event=daou.api.call method={} path={} refreshed={}", method.name(), path, refreshed);
+        Map<String, Object> sanitizedQuery = sanitizeParams(queryParams);
+        String bodySummary = summarizeBody(body);
+        String requestUri = buildRequestUri(path, sanitizedQuery);
+        log.info(
+                "event=daou.api.call method={} path={} query={} uri={} body={} refreshed={}",
+                method.name(),
+                path,
+                sanitizedQuery,
+                requestUri,
+                bodySummary,
+                refreshed
+        );
 
         RestClient.RequestBodySpec requestSpec = restClient.method(method)
                 .uri(uriBuilder -> buildUri(uriBuilder, path, queryParams))
@@ -152,10 +202,103 @@ public class DaouPortalClient {
         return current.build();
     }
 
-    private ToolExecutionException convertError(String path, RestClientResponseException e) {
+    private ToolExecutionException convertError(
+            String path,
+            Map<String, ?> queryParams,
+            Object body,
+            RestClientResponseException e
+    ) {
+        Map<String, Object> sanitizedQuery = sanitizeParams(queryParams);
+        String bodySummary = summarizeBody(body);
         String message = "Daou Portal API 호출 실패(path=%s, status=%s)".formatted(path, e.getStatusCode().value());
-        log.warn("event=daou.api.call.failed path={} status={} message={}", path, e.getStatusCode().value(), e.getMessage());
+        log.warn(
+                "event=daou.api.call.failed path={} query={} body={} status={} message={}",
+                path,
+                sanitizedQuery,
+                bodySummary,
+                e.getStatusCode().value(),
+                e.getMessage()
+        );
         return new ToolExecutionException(message, e, e.getStatusCode().is5xxServerError());
+    }
+
+    private boolean isNotFoundError(ToolExecutionException e) {
+        return e.getMessage() != null && e.getMessage().contains("status=404");
+    }
+
+    private Map<String, Object> sanitizeParams(Map<String, ?> params) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, ?> entry : params.entrySet()) {
+            Object value = entry.getValue();
+            if (value == null) {
+                continue;
+            }
+            String text = value.toString().trim();
+            if (text.isBlank()) {
+                continue;
+            }
+            if (isSensitiveKey(entry.getKey())) {
+                sanitized.put(entry.getKey(), "***");
+                continue;
+            }
+            sanitized.put(entry.getKey(), trimForLog(text));
+        }
+        return sanitized;
+    }
+
+    private String summarizeBody(Object body) {
+        if (body == null) {
+            return "-";
+        }
+        if (body instanceof Map<?, ?> map) {
+            Map<String, Object> converted = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                Object value = entry.getValue();
+                if (value == null) {
+                    continue;
+                }
+                if (isSensitiveKey(key)) {
+                    converted.put(key, "***");
+                } else {
+                    converted.put(key, trimForLog(String.valueOf(value)));
+                }
+            }
+            return converted.toString();
+        }
+        return trimForLog(body.toString());
+    }
+
+    private String buildRequestUri(String path, Map<String, Object> sanitizedQuery) {
+        if (sanitizedQuery.isEmpty()) {
+            return path;
+        }
+        StringBuilder builder = new StringBuilder(path).append('?');
+        int index = 0;
+        for (Map.Entry<String, Object> entry : sanitizedQuery.entrySet()) {
+            if (index++ > 0) {
+                builder.append('&');
+            }
+            builder.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return builder.toString();
+    }
+
+    private boolean isSensitiveKey(String key) {
+        String lower = key == null ? "" : key.toLowerCase();
+        for (String sensitive : SENSITIVE_KEYS) {
+            if (lower.contains(sensitive)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String trimForLog(String value) {
+        if (value.length() <= 200) {
+            return value;
+        }
+        return value.substring(0, 200) + "...(truncated)";
     }
 
     private Map<String, Object> asMap(JsonNode node) {
