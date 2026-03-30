@@ -30,6 +30,12 @@ agent:
   tools:
     default-timeout-ms: 5000
     default-max-attempts: 2
+  quant:
+    lookback-days: 90
+    fallback-points: 60
+    market-data:
+      base-url: https://stooq.com
+      timeout-ms: 4000
   daou-portal:
     base-url: https://portal.daou.co.kr/openapi2
     auth-url: https://portal.daou.co.kr/oauth/token

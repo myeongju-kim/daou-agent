@@ -121,6 +121,16 @@ public class TestLlmStubConfig {
             ));
         }
 
+        if (containsAny(message, "코스피", "환율", "삼성전자", "엔비디아", "테슬라", "애플", "주가", "전망")) {
+            return LlmResponse.toolCall(new ToolCallRequest(
+                    "quant.predict_market",
+                    Map.of(
+                            "target", message,
+                            "horizon", "day"
+                    )
+            ));
+        }
+
         return LlmResponse.finalAnswer("[stub] 요청을 이해했습니다: " + message);
     }
 

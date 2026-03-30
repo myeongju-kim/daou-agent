@@ -189,6 +189,8 @@ public class SpringAiLlmClient implements LlmClient {
                 - 도구 실행 전에는 "보냈습니다/발송했습니다/등록했습니다/하겠습니다" 같은 약속/완료 표현을 금지한다.
                 - 일정 조회/브리핑 요청이면 calendar.list_events를 바로 호출하지 말고
                   calendar.list_calendars 결과로 calendarIds를 확보한 뒤 calendar.list_events를 호출한다.
+                - 지수/환율/주식 전망 요청이면 quant.predict_market을 먼저 호출한다.
+                - quant.predict_market 호출 시 horizon은 day/week/month 중 하나로 정규화한다.
                 """.formatted(tools, toolDescriptions);
     }
 

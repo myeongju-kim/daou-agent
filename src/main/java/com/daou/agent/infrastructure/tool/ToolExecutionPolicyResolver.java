@@ -24,6 +24,7 @@ public class ToolExecutionPolicyResolver {
                 "mail.read_message", new ToolExecutionPolicy(5000, 2),
                 "mail.send_message", new ToolExecutionPolicy(7000, 1),
                 "messenger.send_message", new ToolExecutionPolicy(5000, 1),
+                "quant.predict_market", new ToolExecutionPolicy(7000, 2),
                 "http.request", new ToolExecutionPolicy(4000, 1)
         );
     }

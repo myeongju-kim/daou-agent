@@ -74,6 +74,7 @@ POST /chat
 ## Phase 3
 - `.agent/work/api_collection.json` 기반 Daou Portal 실제 연동 추가
 - Calendar / Mail / Messenger tool adapter 분리
+- Quant Trainer 예측 도구(`quant.predict_market`) 추가
 - approval resume idempotency 및 context 검증 추가
 - `X-Correlation-Id` 헤더, 구조화 로그, 응답 버전 관리 추가
 
