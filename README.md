@@ -96,16 +96,36 @@ GET /agents
       "isDefault": false,
       "supportedIntents": ["quant.forecast", "quant.general"],
       "allowedTools": ["quant.predict_market"]
+    },
+    {
+      "key": "doc-rag",
+      "name": "Document RAG",
+      "description": "개인 문서(Notion RAG) 검색/요약 에이전트",
+      "isDefault": false,
+      "supportedIntents": ["rag.search", "rag.general"],
+      "allowedTools": ["rag.search_documents"]
     }
   ],
   "correlationId": "..."
 }
 ```
 
+## RAG DB 설정
+`doc-rag` 에이전트는 아래 설정으로 PostgreSQL `notion_rag` 스키마를 조회합니다.
+
+- `AGENT_RAG_DB_URL` (기본: `jdbc:postgresql://localhost:5432/postgres`)
+- `AGENT_RAG_DB_USERNAME` (기본: OS 사용자명)
+- `AGENT_RAG_DB_PASSWORD` (기본: 빈값)
+- `AGENT_RAG_SCHEMA` (기본: `notion_rag`)
+
+툴:
+- `rag.search_documents` 인자: `query(optional)`, `pathQuery(optional)`, `limit(optional)`
+
 ## Phase 3
 - `.agent/work/api_collection.json` 기반 Daou Portal 실제 연동 추가
 - Calendar / Mail / Messenger tool adapter 분리
 - Quant Trainer 예측 도구(`quant.predict_market`) 추가
+- Document RAG 조회 도구(`rag.search_documents`) 추가
 - agent profile 기반 rule-based intent/allowed tool 제어 추가
 - approval resume idempotency 및 context 검증 추가
 - `X-Correlation-Id` 헤더, 구조화 로그, 응답 버전 관리 추가

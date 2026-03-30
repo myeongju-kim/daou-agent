@@ -202,6 +202,8 @@ public class SpringAiLlmClient implements LlmClient {
                   calendar.list_calendars 결과로 calendarIds를 확보한 뒤 calendar.list_events를 호출한다.
                 - 지수/환율/주식 전망 요청이면 quant.predict_market을 먼저 호출한다.
                 - quant.predict_market 호출 시 horizon은 day/week/month 중 하나로 정규화한다.
+                - 문서/RAG 에이전트(agentKey=doc-rag)에서는 final 답변 전에 rag.search_documents를 먼저 호출한다.
+                - rag.search_documents 호출 시 query에는 사용자의 핵심 키워드를 넣고 limit은 3~10 범위에서 지정한다.
                 """.formatted(agentKey, intent, agentHint, tools, toolDescriptions);
     }
 

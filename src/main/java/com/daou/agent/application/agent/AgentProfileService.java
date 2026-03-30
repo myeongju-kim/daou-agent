@@ -22,7 +22,11 @@ public class AgentProfileService {
         this.aliases = Map.of(
                 "daouoffice", "personal",
                 "daou-office", "personal",
-                "quant", "quant-trainer"
+                "quant", "quant-trainer",
+                "rag", "doc-rag",
+                "doc", "doc-rag",
+                "notion-rag", "doc-rag",
+                "document-rag", "doc-rag"
         );
         if (!profiles.containsKey(this.defaultAgentKey)) {
             throw new IllegalStateException("기본 agentKey를 찾을 수 없습니다: " + this.defaultAgentKey);
@@ -86,6 +90,15 @@ public class AgentProfileService {
                 "당신은 시장 데이터 기반 전망 리포트를 만드는 퀀트 트레이너다. 예측 근거와 리스크를 함께 제시한다.",
                 Set.of("quant.predict_market"),
                 List.of("quant.forecast", "quant.general")
+        ));
+
+        built.put("doc-rag", new AgentProfile(
+                "doc-rag",
+                "Document RAG",
+                "개인 문서(Notion RAG) 검색/요약 에이전트",
+                "당신은 개인 문서 지식베이스를 조회하는 RAG 에이전트다. 답변 전 rag.search_documents로 근거를 먼저 조회한다.",
+                Set.of("rag.search_documents"),
+                List.of("rag.search", "rag.general")
         ));
 
         return Map.copyOf(built);

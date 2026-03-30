@@ -61,7 +61,8 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.defaultAgentKey").value("personal"))
                 .andExpect(jsonPath("$.agents.length()").isNotEmpty())
                 .andExpect(jsonPath("$.agents[?(@.key=='personal')]").isNotEmpty())
-                .andExpect(jsonPath("$.agents[?(@.key=='quant-trainer')]").isNotEmpty());
+                .andExpect(jsonPath("$.agents[?(@.key=='quant-trainer')]").isNotEmpty())
+                .andExpect(jsonPath("$.agents[?(@.key=='doc-rag')]").isNotEmpty());
     }
 
     @Test

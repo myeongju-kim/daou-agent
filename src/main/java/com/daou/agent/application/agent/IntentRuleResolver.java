@@ -16,6 +16,12 @@ public class IntentRuleResolver {
             }
             return "quant.general";
         }
+        if ("doc-rag".equals(normalizedAgent)) {
+            if (containsAny(normalizedMessage, "검색", "찾아", "키워드", "로그인", "문서", "근거", "가이드", "정책", "정리", "요약")) {
+                return "rag.search";
+            }
+            return "rag.general";
+        }
 
         if (containsAny(normalizedMessage, "일정", "캘린더", "회의", "스케줄")) {
             return "office.calendar";

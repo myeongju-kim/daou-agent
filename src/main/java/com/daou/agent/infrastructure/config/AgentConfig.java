@@ -29,6 +29,7 @@ public class AgentConfig {
                 new ToolDefinition("mail.send_message", "메일을 발송한다. 인자: to, subject, content.", RiskLevel.MEDIUM),
                 new ToolDefinition("messenger.send_message", "1:1 메신저를 전송한다. 인자: toUser, message.", RiskLevel.MEDIUM),
                 new ToolDefinition("quant.predict_market", "지수/환율/종목 전망을 예측한다. 인자: target(optional), symbol(optional), assetType(optional:index|fx|stock), horizon(day|week|month), recentPrices(optional).", RiskLevel.LOW),
+                new ToolDefinition("rag.search_documents", "문서 RAG 청크를 검색한다. 인자: query(optional), pathQuery(optional), limit(optional).", RiskLevel.LOW),
                 new ToolDefinition("http.request", "임의의 HTTP 요청을 실행한다. 인자: method, url, headers(optional), body(optional).", RiskLevel.MEDIUM),
                 new ToolDefinition("fs.read", "로컬 파일을 조회한다. 현재 정책상 차단된다.", RiskLevel.HIGH)
         ));
