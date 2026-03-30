@@ -42,19 +42,19 @@ class SessionControllerIntegrationTest {
         jdbcTemplate.update("DELETE FROM agent_approval_requests");
         jdbcTemplate.update("DELETE FROM agent_session_messages");
         jdbcTemplate.update("DELETE FROM agent_sessions");
-        agentRunner.run("daouoffice", "room-alpha", "안녕");
-        agentRunner.run("daouoffice", "room-bravo", "오늘 일정 알려줘");
-        agentRunner.run("calendar-bot", "room-other", "안녕");
+        agentRunner.run("personal", "room-alpha", "안녕");
+        agentRunner.run("personal", "room-bravo", "오늘 일정 알려줘");
+        agentRunner.run("quant-trainer", "room-other", "엔비디아 내일 전망 알려줘");
     }
 
     @Test
     void shouldListSessionsByAgentKey() throws Exception {
         mockMvc.perform(get("/sessions")
-                        .queryParam("agentKey", "daouoffice"))
+                        .queryParam("agentKey", "personal"))
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andExpect(jsonPath("$.version").value("v1"))
-                .andExpect(jsonPath("$.agentKey").value("daouoffice"))
+                .andExpect(jsonPath("$.agentKey").value("personal"))
                 .andExpect(jsonPath("$.sessions.length()").value(2))
                 .andExpect(jsonPath("$.sessions[0].sessionId").value("room-bravo"))
                 .andExpect(jsonPath("$.sessions[0].lastMessage").isNotEmpty())
@@ -64,12 +64,12 @@ class SessionControllerIntegrationTest {
     @Test
     void shouldReturnSessionDetailWithMessages() throws Exception {
         mockMvc.perform(get("/sessions/{sessionId}", "room-bravo")
-                        .queryParam("agentKey", "daouoffice"))
+                        .queryParam("agentKey", "personal"))
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andExpect(jsonPath("$.version").value("v1"))
                 .andExpect(jsonPath("$.sessionId").value("room-bravo"))
-                .andExpect(jsonPath("$.agentKey").value("daouoffice"))
+                .andExpect(jsonPath("$.agentKey").value("personal"))
                 .andExpect(jsonPath("$.messages.length()").value(3))
                 .andExpect(jsonPath("$.messages[0].role").value("user"))
                 .andExpect(jsonPath("$.messages[1].role").value("tool"))
@@ -79,7 +79,7 @@ class SessionControllerIntegrationTest {
     @Test
     void shouldReturnNotFoundWhenSessionDoesNotExist() throws Exception {
         mockMvc.perform(get("/sessions/{sessionId}", "missing-room")
-                        .queryParam("agentKey", "daouoffice"))
+                        .queryParam("agentKey", "personal"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.version").value("v1"))
                 .andExpect(jsonPath("$.errorCode").value("NOT_FOUND"));

@@ -18,6 +18,7 @@ spring:
 agent:
   storage:
     type: jdbc
+  default-agent-key: personal
   llm-provider: ollama
   max-loop: 5
   recent-message-count: 12

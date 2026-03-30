@@ -65,7 +65,7 @@ public class SpringAiLlmClient implements LlmClient {
 
     @Override
     public LlmResponse generate(AgentContext context) {
-        String systemPrompt = buildSystemPrompt();
+        String systemPrompt = buildSystemPrompt(context);
         String userPrompt = buildUserPrompt(context);
 
         try {
@@ -150,21 +150,31 @@ public class SpringAiLlmClient implements LlmClient {
         }
     }
 
-    private String buildSystemPrompt() {
-        String tools = toolRegistry.names().stream()
+    private String buildSystemPrompt(AgentContext context) {
+        List<String> allowedTools = context.getAllowedToolNames().isEmpty()
+                ? toolRegistry.names().stream().sorted(Comparator.naturalOrder()).toList()
+                : context.getAllowedToolNames().stream().sorted(Comparator.naturalOrder()).toList();
+        String tools = allowedTools.stream()
                 .sorted(Comparator.naturalOrder())
                 .collect(Collectors.joining(", "));
-        String toolDescriptions = toolRegistry.names().stream()
-                .sorted(Comparator.naturalOrder())
+        String toolDescriptions = allowedTools.stream()
                 .map(name -> toolRegistry.find(name)
                         .map(definition -> "- %s: %s".formatted(definition.name(), definition.description()))
                         .orElse("- %s".formatted(name)))
                 .collect(Collectors.joining("\n"));
+        String agentHint = context.getAgentSystemHint().isBlank() ? "-" : context.getAgentSystemHint();
+        String intent = context.getIntent().isBlank() ? "-" : context.getIntent();
+        String agentKey = context.getAgentKey().isBlank() ? "-" : context.getAgentKey();
 
         return """
                 당신은 DaouOffice Agent 백엔드의 의사결정 LLM이다.
                 응답은 반드시 JSON object 한 개로만 반환한다.
                 설명 문장, 코드블록, 마크다운은 금지한다.
+
+                현재 에이전트:
+                - agentKey: %s
+                - intent: %s
+                - profileHint: %s
 
                 사용 가능한 도구:
                 %s
@@ -181,6 +191,7 @@ public class SpringAiLlmClient implements LlmClient {
 
                 규칙:
                 - toolName은 반드시 사용 가능한 도구 목록 중 하나여야 한다.
+                - 선택된 에이전트의 허용 도구 목록 밖 toolName은 절대 호출하지 않는다.
                 - 도구 호출 시 설명에 나온 필수 인자를 빠짐없이 채운다.
                 - 이미 toolResults가 존재하면 기본적으로 final을 반환한다.
                 - 알 수 없는 값은 임의 생성하지 말고 final로 설명한다.
@@ -191,7 +202,7 @@ public class SpringAiLlmClient implements LlmClient {
                   calendar.list_calendars 결과로 calendarIds를 확보한 뒤 calendar.list_events를 호출한다.
                 - 지수/환율/주식 전망 요청이면 quant.predict_market을 먼저 호출한다.
                 - quant.predict_market 호출 시 horizon은 day/week/month 중 하나로 정규화한다.
-                """.formatted(tools, toolDescriptions);
+                """.formatted(agentKey, intent, agentHint, tools, toolDescriptions);
     }
 
     private String buildUserPrompt(AgentContext context) {
@@ -205,6 +216,8 @@ public class SpringAiLlmClient implements LlmClient {
 
         return """
                 sessionId: %s
+                agentKey: %s
+                intent: %s
                 summary: %s
                 selectedModel: %s
                 currentUserMessage: %s
@@ -216,6 +229,8 @@ public class SpringAiLlmClient implements LlmClient {
                 %s
                 """.formatted(
                 context.getSessionId(),
+                emptyToDash(context.getAgentKey()),
+                emptyToDash(context.getIntent()),
                 emptyToDash(context.getSummary()),
                 emptyToDash(context.getSelectedModel()),
                 emptyToDash(context.getCurrentUserMessage()),

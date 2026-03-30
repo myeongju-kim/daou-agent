@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class Session {
-    public static final String DEFAULT_AGENT_KEY = "daouoffice";
+    public static final String DEFAULT_AGENT_KEY = "personal";
 
     private final String id;
     private final String agentKey;

@@ -1,6 +1,7 @@
 package com.daou.agent.api.session;
 
 import com.daou.agent.api.common.ApiContract;
+import com.daou.agent.application.agent.AgentProfileService;
 import com.daou.agent.application.session.SessionDetailView;
 import com.daou.agent.application.session.SessionQueryService;
 import com.daou.agent.application.session.SessionSummaryView;
@@ -15,9 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class SessionController {
 
     private final SessionQueryService sessionQueryService;
+    private final AgentProfileService agentProfileService;
 
-    public SessionController(SessionQueryService sessionQueryService) {
+    public SessionController(SessionQueryService sessionQueryService, AgentProfileService agentProfileService) {
         this.sessionQueryService = sessionQueryService;
+        this.agentProfileService = agentProfileService;
     }
 
     @GetMapping("/sessions")
@@ -80,9 +83,6 @@ public class SessionController {
     }
 
     private String normalizeAgentKey(String agentKey) {
-        if (agentKey == null || agentKey.isBlank()) {
-            return "daouoffice";
-        }
-        return agentKey.trim();
+        return agentProfileService.normalizeAgentKey(agentKey);
     }
 }

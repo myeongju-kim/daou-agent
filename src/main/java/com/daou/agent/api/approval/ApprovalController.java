@@ -2,8 +2,10 @@ package com.daou.agent.api.approval;
 
 import com.daou.agent.api.chat.ChatResponse;
 import com.daou.agent.api.common.ApiContract;
+import com.daou.agent.application.agent.IntentRuleResolver;
 import com.daou.agent.application.approval.ApprovalResumeService;
 import com.daou.agent.application.approval.ApprovalService;
+import com.daou.agent.application.session.AgentSessionIdCodec;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.agent.LoopStep;
 import com.daou.agent.domain.approval.ApprovalRequest;
@@ -19,10 +21,16 @@ public class ApprovalController {
 
     private final ApprovalService approvalService;
     private final ApprovalResumeService approvalResumeService;
+    private final IntentRuleResolver intentRuleResolver;
 
-    public ApprovalController(ApprovalService approvalService, ApprovalResumeService approvalResumeService) {
+    public ApprovalController(
+            ApprovalService approvalService,
+            ApprovalResumeService approvalResumeService,
+            IntentRuleResolver intentRuleResolver
+    ) {
         this.approvalService = approvalService;
         this.approvalResumeService = approvalResumeService;
+        this.intentRuleResolver = intentRuleResolver;
     }
 
     @PostMapping("/approvals/{id}/approve")
@@ -55,6 +63,9 @@ public class ApprovalController {
 
     @PostMapping("/approvals/{id}/approve-and-resume")
     public ChatResponse approveAndResume(@PathVariable("id") String approvalId) {
+        ApprovalRequest request = approvalService.getById(approvalId);
+        String agentKey = AgentSessionIdCodec.decodeAgentKey(request.getSessionId());
+        String intent = intentRuleResolver.resolve(agentKey, request.getRequestedUserMessage());
         AgentResult result = approvalResumeService.approveAndResume(approvalId);
         List<String> stepDetails = result.steps().stream()
                 .map(LoopStep::detail)
@@ -66,7 +77,9 @@ public class ApprovalController {
                 stepDetails,
                 result.approvalId(),
                 CorrelationIdHolder.getOrCreate(),
-                null
+                null,
+                agentKey,
+                intent
         );
     }
 }

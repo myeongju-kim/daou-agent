@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.daou.agent.application.agent.AgentRunner;
 import com.daou.agent.application.approval.ApprovalService;
 import com.daou.agent.application.port.SessionRepository;
+import com.daou.agent.application.session.AgentSessionIdCodec;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.approval.ApprovalRequest;
 import com.daou.agent.domain.common.ApprovalStatus;
@@ -36,13 +37,13 @@ class JdbcPersistenceIntegrationTest {
     private ApprovalService approvalService;
 
     @Test
-    void shouldPersistDaouOfficeChatRoomMessages() {
-        AgentResult result = agentRunner.run("daouoffice", "jdbc-session", "안녕");
+    void shouldPersistPersonalAgentChatRoomMessages() {
+        AgentResult result = agentRunner.run("personal", "jdbc-session", "안녕");
 
         assertThat(result.status().name().toLowerCase()).isEqualTo("ok");
 
-        Session session = sessionRepository.findById("jdbc-session").orElseThrow();
-        assertThat(session.getAgentKey()).isEqualTo("daouoffice");
+        Session session = sessionRepository.findById(AgentSessionIdCodec.encode("personal", "jdbc-session")).orElseThrow();
+        assertThat(session.getAgentKey()).isEqualTo("personal");
         assertThat(session.getTitle()).isEqualTo("안녕");
         assertThat(session.getMessages()).hasSize(2);
         assertThat(session.getMessages().get(0).content()).isEqualTo("안녕");
@@ -51,12 +52,12 @@ class JdbcPersistenceIntegrationTest {
 
     @Test
     void shouldPersistApprovalRequestInJdbcStore() {
-        AgentResult result = agentRunner.run("daouoffice", "jdbc-approval", "내일 오전 10시에 일정 등록해줘");
+        AgentResult result = agentRunner.run("personal", "jdbc-approval", "내일 오전 10시에 일정 등록해줘");
 
         assertThat(result.status().name().toLowerCase()).isEqualTo("approval_required");
         ApprovalRequest approvalRequest = approvalService.getById(result.approvalId());
 
-        assertThat(approvalRequest.getSessionId()).isEqualTo("jdbc-approval");
+        assertThat(approvalRequest.getSessionId()).isEqualTo(AgentSessionIdCodec.encode("personal", "jdbc-approval"));
         assertThat(approvalRequest.getToolCall().toolName()).isEqualTo("calendar.create_event");
         assertThat(approvalRequest.getStatus()).isEqualTo(ApprovalStatus.PENDING);
     }

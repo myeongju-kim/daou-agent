@@ -4,6 +4,7 @@ import com.daou.agent.domain.agent.AgentContext;
 import com.daou.agent.domain.session.Session;
 import com.daou.agent.domain.session.SessionMessage;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,24 @@ public class MemoryService {
     }
 
     public AgentContext buildContext(Session session, String currentUserMessage) {
+        return buildContext(
+                session,
+                currentUserMessage,
+                session.getAgentKey(),
+                "",
+                Set.of(),
+                ""
+        );
+    }
+
+    public AgentContext buildContext(
+            Session session,
+            String currentUserMessage,
+            String agentKey,
+            String intent,
+            Set<String> allowedTools,
+            String agentSystemHint
+    ) {
         List<SessionMessage> messages = session.getMessages();
         int from = Math.max(0, messages.size() - recentMessageCount);
         List<SessionMessage> recent = messages.subList(from, messages.size());
@@ -24,7 +43,11 @@ public class MemoryService {
                 session.getSummary(),
                 recent,
                 currentUserMessage,
-                session.getSelectedModel()
+                session.getSelectedModel(),
+                agentKey,
+                intent,
+                agentSystemHint,
+                allowedTools
         );
     }
 }

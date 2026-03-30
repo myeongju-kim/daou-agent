@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.daou.agent.application.agent.AgentRunner;
+import com.daou.agent.application.session.AgentSessionIdCodec;
 import com.daou.agent.application.session.SessionService;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.support.TestLlmStubConfig;
@@ -49,7 +50,10 @@ class ApprovalResumeIdempotencyIntegrationTest {
     @Test
     void shouldRejectResumeWhenUserContextChanged() {
         AgentResult first = agentRunner.run("resume-context", "내일 오전 10시에 일정 등록해줘");
-        sessionService.appendUserMessage("resume-context", "방금 요청 취소해줘");
+        sessionService.appendUserMessage(
+                AgentSessionIdCodec.encode("personal", "resume-context"),
+                "방금 요청 취소해줘"
+        );
 
         assertThatThrownBy(() -> approvalResumeService.approveAndResume(first.approvalId()))
                 .isInstanceOf(IllegalStateException.class)

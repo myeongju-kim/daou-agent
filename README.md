@@ -1,6 +1,6 @@
-# daouoffice-agent
+# personal-agent-backend
 
-DaouOffice Desktop Agent용 Spring AI Backend MVP입니다.
+개인용 멀티 에이전트 Spring AI Backend MVP입니다.
 
 ## 기술 스택
 - Java 21
@@ -40,6 +40,7 @@ DaouOffice Desktop Agent용 Spring AI Backend MVP입니다.
 
 ## API
 - `POST /chat`
+- `GET /agents`
 - `GET /dashboard`
 - `GET /ollama/models`
 - `POST /ollama/models/select`
@@ -67,6 +68,36 @@ POST /chat
   "message": "승인이 필요한 도구입니다: calendar.create_event",
   "steps": ["loop=1", "calendar.create_event"],
   "approvalId": "...",
+  "agentKey": "personal",
+  "intent": "office.calendar",
+  "correlationId": "..."
+}
+```
+
+### Agent 목록 조회 예시
+```text
+GET /agents
+{
+  "version": "v1",
+  "defaultAgentKey": "personal",
+  "agents": [
+    {
+      "key": "personal",
+      "name": "Personal Assistant",
+      "description": "메일/일정/메신저 중심의 개인 업무 에이전트",
+      "isDefault": true,
+      "supportedIntents": ["office.calendar", "office.mail", "office.messenger", "office.general"],
+      "allowedTools": ["calendar.list_events", "..."]
+    },
+    {
+      "key": "quant-trainer",
+      "name": "Quant Trainer",
+      "description": "지수/환율/종목 예측 리포트 생성 에이전트",
+      "isDefault": false,
+      "supportedIntents": ["quant.forecast", "quant.general"],
+      "allowedTools": ["quant.predict_market"]
+    }
+  ],
   "correlationId": "..."
 }
 ```
@@ -75,11 +106,12 @@ POST /chat
 - `.agent/work/api_collection.json` 기반 Daou Portal 실제 연동 추가
 - Calendar / Mail / Messenger tool adapter 분리
 - Quant Trainer 예측 도구(`quant.predict_market`) 추가
+- agent profile 기반 rule-based intent/allowed tool 제어 추가
 - approval resume idempotency 및 context 검증 추가
 - `X-Correlation-Id` 헤더, 구조화 로그, 응답 버전 관리 추가
 
 ## 클라이언트 문서
-- [MVP Client API Guide](docs/mvp-client-api-guide.md)
+- [Frontend Agent Selection Guide](docs/frontend-agent-selection-guide.md)
 
 ## 작업 규칙
 - `.agent/java-spring-ai-git-workflow-guide.md` 기준 협업

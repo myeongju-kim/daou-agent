@@ -81,6 +81,14 @@ public class AgentLoopEngine {
             }
 
             ToolCallRequest toolCall = response.toolCallRequest();
+            if (!context.isToolAllowed(toolCall.toolName())) {
+                String message = "선택한 에이전트에서 허용되지 않은 도구입니다: " + toolCall.toolName();
+                steps.add(new LoopStep("blocked", message));
+                log.warn("event=agent.loop.tool_forbidden sessionId={} agentKey={} toolName={}",
+                        context.getSessionId(), context.getAgentKey(), toolCall.toolName());
+                return AgentResult.blocked(message, steps);
+            }
+
             ApprovalDecision decision = approvalPolicy.check(toolCall);
             log.info("event=agent.loop.tool_decision sessionId={} toolName={} requiresApproval={} blocked={}",
                     context.getSessionId(), toolCall.toolName(), decision.requiresApproval(), decision.blocked());
@@ -151,7 +159,11 @@ public class AgentLoopEngine {
                 context.getSummary(),
                 context.getRecentMessages(),
                 forcedMessage,
-                context.getSelectedModel()
+                context.getSelectedModel(),
+                context.getAgentKey(),
+                context.getIntent(),
+                context.getAgentSystemHint(),
+                context.getAllowedToolNames()
         );
         context.getToolResults().forEach(retryContext::addToolResult);
         return llmClient.generate(retryContext);

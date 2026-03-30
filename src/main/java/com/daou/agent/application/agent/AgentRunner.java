@@ -1,6 +1,7 @@
 package com.daou.agent.application.agent;
 
 import com.daou.agent.application.llm.OllamaModelService;
+import com.daou.agent.application.session.AgentSessionIdCodec;
 import com.daou.agent.application.session.MemoryService;
 import com.daou.agent.application.session.SessionService;
 import com.daou.agent.domain.agent.AgentContext;
@@ -21,6 +22,8 @@ public class AgentRunner {
     private final MemoryService memoryService;
     private final AgentLoopEngine agentLoopEngine;
     private final OllamaModelService ollamaModelService;
+    private final AgentProfileService agentProfileService;
+    private final IntentRuleResolver intentRuleResolver;
     private final String llmProvider;
 
     public AgentRunner(
@@ -28,12 +31,16 @@ public class AgentRunner {
             MemoryService memoryService,
             AgentLoopEngine agentLoopEngine,
             OllamaModelService ollamaModelService,
+            AgentProfileService agentProfileService,
+            IntentRuleResolver intentRuleResolver,
             @Value("${agent.llm-provider:ollama}") String llmProvider
     ) {
         this.sessionService = sessionService;
         this.memoryService = memoryService;
         this.agentLoopEngine = agentLoopEngine;
         this.ollamaModelService = ollamaModelService;
+        this.agentProfileService = agentProfileService;
+        this.intentRuleResolver = intentRuleResolver;
         this.llmProvider = llmProvider;
     }
 
@@ -42,8 +49,14 @@ public class AgentRunner {
     }
 
     public AgentResult run(String agentKey, String sessionId, String message) {
-        log.info("event=agent.run.start sessionId={} messageLength={}", sessionId, message == null ? 0 : message.length());
-        Session session = sessionService.getOrCreate(sessionId, agentKey);
+        String resolvedAgentKey = agentProfileService.normalizeAgentKey(agentKey);
+        AgentProfile profile = agentProfileService.getProfile(resolvedAgentKey);
+        String intent = intentRuleResolver.resolve(resolvedAgentKey, message);
+        String storageSessionId = AgentSessionIdCodec.encode(resolvedAgentKey, sessionId);
+
+        log.info("event=agent.run.start sessionId={} agentKey={} intent={} messageLength={}",
+                sessionId, resolvedAgentKey, intent, message == null ? 0 : message.length());
+        Session session = sessionService.getOrCreate(storageSessionId, resolvedAgentKey);
 
         if ("ollama".equalsIgnoreCase(llmProvider) && session.getSelectedModel().isBlank()) {
             try {
@@ -54,10 +67,17 @@ public class AgentRunner {
         }
 
         sessionService.appendUserMessage(session.getId(), message);
-        session = sessionService.getOrCreate(sessionId, agentKey);
+        session = sessionService.getOrCreate(storageSessionId, resolvedAgentKey);
         String resolvedSessionId = session.getId();
 
-        AgentContext context = memoryService.buildContext(session, message);
+        AgentContext context = memoryService.buildContext(
+                session,
+                message,
+                resolvedAgentKey,
+                intent,
+                profile.allowedTools(),
+                profile.systemHint()
+        );
         AgentResult result = agentLoopEngine.execute(context);
 
         result.steps().stream()
@@ -68,8 +88,8 @@ public class AgentRunner {
             sessionService.appendAssistantMessage(resolvedSessionId, result.message());
         }
 
-        log.info("event=agent.run.finish sessionId={} status={} approvalId={}",
-                sessionId, result.status().name(), result.approvalId());
+        log.info("event=agent.run.finish sessionId={} agentKey={} intent={} status={} approvalId={}",
+                sessionId, resolvedAgentKey, intent, result.status().name(), result.approvalId());
         return result;
     }
 }

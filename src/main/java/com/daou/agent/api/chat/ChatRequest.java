@@ -9,7 +9,7 @@ public record ChatRequest(
 ) {
     public String normalizedAgentKey() {
         if (agentKey == null || agentKey.isBlank()) {
-            return "daouoffice";
+            return "personal";
         }
         return agentKey.trim();
     }

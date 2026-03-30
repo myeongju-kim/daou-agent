@@ -28,4 +28,11 @@ class AgentRunnerIntegrationTest {
         AgentResult result = agentRunner.run("default", "안녕");
         assertThat(result.status().name().toLowerCase()).isEqualTo("ok");
     }
+
+    @Test
+    void shouldBlockToolOutsideAllowedProfile() {
+        AgentResult result = agentRunner.run("quant-trainer", "quant-room", "내일 오전 10시에 일정 등록해줘");
+        assertThat(result.status().name().toLowerCase()).isEqualTo("blocked");
+        assertThat(result.message()).contains("허용되지 않은 도구");
+    }
 }
