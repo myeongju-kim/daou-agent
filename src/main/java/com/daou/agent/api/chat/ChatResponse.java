@@ -10,6 +10,8 @@ public record ChatResponse(
         List<String> steps,
         String approvalId,
         String correlationId,
-        ApprovalInfoResponse approval
+        ApprovalInfoResponse approval,
+        String agentKey,
+        String intent
 ) {
 }

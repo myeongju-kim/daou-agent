@@ -1,6 +1,9 @@
 package com.daou.agent.application.approval;
 
 import com.daou.agent.application.agent.AgentLoopEngine;
+import com.daou.agent.application.agent.AgentProfile;
+import com.daou.agent.application.agent.AgentProfileService;
+import com.daou.agent.application.agent.IntentRuleResolver;
 import com.daou.agent.application.session.MemoryService;
 import com.daou.agent.application.session.SessionService;
 import com.daou.agent.application.port.ToolExecutor;
@@ -29,6 +32,8 @@ public class ApprovalResumeService {
     private final MemoryService memoryService;
     private final ToolExecutor toolExecutor;
     private final AgentLoopEngine agentLoopEngine;
+    private final AgentProfileService agentProfileService;
+    private final IntentRuleResolver intentRuleResolver;
     private final Map<String, AgentResult> cachedResumeResults = new ConcurrentHashMap<>();
     private final Map<String, Object> approvalLocks = new ConcurrentHashMap<>();
 
@@ -37,13 +42,17 @@ public class ApprovalResumeService {
             SessionService sessionService,
             MemoryService memoryService,
             ToolExecutor toolExecutor,
-            AgentLoopEngine agentLoopEngine
+            AgentLoopEngine agentLoopEngine,
+            AgentProfileService agentProfileService,
+            IntentRuleResolver intentRuleResolver
     ) {
         this.approvalService = approvalService;
         this.sessionService = sessionService;
         this.memoryService = memoryService;
         this.toolExecutor = toolExecutor;
         this.agentLoopEngine = agentLoopEngine;
+        this.agentProfileService = agentProfileService;
+        this.intentRuleResolver = intentRuleResolver;
     }
 
     public AgentResult approveAndResume(String approvalId) {
@@ -76,7 +85,16 @@ public class ApprovalResumeService {
             sessionService.appendToolResult(session.getId(), toolResult.message());
 
             session = sessionService.getOrCreate(approvalRequest.getSessionId());
-            AgentContext context = memoryService.buildContext(session, latestUserMessage);
+            AgentProfile profile = agentProfileService.getProfile(session.getAgentKey());
+            String intent = intentRuleResolver.resolve(session.getAgentKey(), latestUserMessage);
+            AgentContext context = memoryService.buildContext(
+                    session,
+                    latestUserMessage,
+                    session.getAgentKey(),
+                    intent,
+                    profile.allowedTools(),
+                    profile.systemHint()
+            );
             context.addToolResult(toolResult);
 
             AgentResult resumed = agentLoopEngine.execute(context);

@@ -18,6 +18,7 @@ spring:
 agent:
   storage:
     type: jdbc
+  default-agent-key: personal
   llm-provider: ollama
   max-loop: 5
   recent-message-count: 12
@@ -30,6 +31,22 @@ agent:
   tools:
     default-timeout-ms: 5000
     default-max-attempts: 2
+  quant:
+    lookback-days: 90
+    fallback-points: 60
+    market-data:
+      base-url: https://stooq.com
+      timeout-ms: 4000
+  rag:
+    datasource:
+      url: ${AGENT_RAG_DB_URL:jdbc:postgresql://localhost:5432/postgres}
+      username: ${AGENT_RAG_DB_USERNAME:${user.name}}
+      password: ${AGENT_RAG_DB_PASSWORD:}
+      driver-class-name: org.postgresql.Driver
+    schema: ${AGENT_RAG_SCHEMA:notion_rag}
+    default-limit: 10
+    max-limit: 20
+    preview-length: 120
   daou-portal:
     base-url: https://portal.daou.co.kr/openapi2
     auth-url: https://portal.daou.co.kr/oauth/token

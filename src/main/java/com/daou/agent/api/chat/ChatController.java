@@ -2,7 +2,9 @@ package com.daou.agent.api.chat;
 
 import com.daou.agent.api.approval.ApprovalInfoResponse;
 import com.daou.agent.api.common.ApiContract;
+import com.daou.agent.application.agent.AgentProfileService;
 import com.daou.agent.application.agent.AgentRunner;
+import com.daou.agent.application.agent.IntentRuleResolver;
 import com.daou.agent.application.approval.ApprovalService;
 import com.daou.agent.domain.agent.AgentResult;
 import com.daou.agent.domain.agent.AgentStatus;
@@ -19,15 +21,26 @@ public class ChatController {
 
     private final AgentRunner agentRunner;
     private final ApprovalService approvalService;
+    private final AgentProfileService agentProfileService;
+    private final IntentRuleResolver intentRuleResolver;
 
-    public ChatController(AgentRunner agentRunner, ApprovalService approvalService) {
+    public ChatController(
+            AgentRunner agentRunner,
+            ApprovalService approvalService,
+            AgentProfileService agentProfileService,
+            IntentRuleResolver intentRuleResolver
+    ) {
         this.agentRunner = agentRunner;
         this.approvalService = approvalService;
+        this.agentProfileService = agentProfileService;
+        this.intentRuleResolver = intentRuleResolver;
     }
 
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        AgentResult result = agentRunner.run(request.normalizedAgentKey(), request.sessionId(), request.message());
+        String agentKey = agentProfileService.normalizeAgentKey(request.normalizedAgentKey());
+        String intent = intentRuleResolver.resolve(agentKey, request.message());
+        AgentResult result = agentRunner.run(agentKey, request.sessionId(), request.message());
         List<String> stepDetails = result.steps().stream()
                 .map(LoopStep::detail)
                 .toList();
@@ -43,7 +56,9 @@ public class ChatController {
                 stepDetails,
                 result.approvalId(),
                 CorrelationIdHolder.getOrCreate(),
-                approval
+                approval,
+                agentKey,
+                intent
         );
     }
 }

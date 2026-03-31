@@ -38,7 +38,9 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andExpect(jsonPath("$.version").value("v1"))
-                .andExpect(jsonPath("$.correlationId").isNotEmpty());
+                .andExpect(jsonPath("$.correlationId").isNotEmpty())
+                .andExpect(jsonPath("$.agentKey").value("personal"))
+                .andExpect(jsonPath("$.intent").isNotEmpty());
     }
 
     @Test
@@ -48,6 +50,19 @@ class ApiContractIntegrationTest {
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andExpect(jsonPath("$.version").value("v1"))
                 .andExpect(jsonPath("$.correlationId").isNotEmpty());
+    }
+
+    @Test
+    void shouldExposeAgentProfilesForFrontendRouting() throws Exception {
+        mockMvc.perform(get("/agents"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Correlation-Id"))
+                .andExpect(jsonPath("$.version").value("v1"))
+                .andExpect(jsonPath("$.defaultAgentKey").value("personal"))
+                .andExpect(jsonPath("$.agents.length()").isNotEmpty())
+                .andExpect(jsonPath("$.agents[?(@.key=='personal')]").isNotEmpty())
+                .andExpect(jsonPath("$.agents[?(@.key=='quant-trainer')]").isNotEmpty())
+                .andExpect(jsonPath("$.agents[?(@.key=='doc-rag')]").isNotEmpty());
     }
 
     @Test
@@ -79,6 +94,8 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("approval_required"))
                 .andExpect(jsonPath("$.approvalId").isNotEmpty())
+                .andExpect(jsonPath("$.agentKey").value("personal"))
+                .andExpect(jsonPath("$.intent").value("office.calendar"))
                 .andExpect(jsonPath("$.approval.reason").isNotEmpty())
                 .andExpect(jsonPath("$.approval.action").value("일정 생성"))
                 .andExpect(jsonPath("$.approval.toolName").value("calendar.create_event"))
